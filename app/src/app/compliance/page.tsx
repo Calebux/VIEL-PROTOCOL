@@ -119,9 +119,10 @@ export default function CompliancePage() {
             Compliance
           </h1>
           <p className="text-muted-foreground leading-relaxed">
-            Privacy with accountability. Veil supports both timelocked viewing
-            keys for retroactive auditing and Privacy Pools for proving funds
-            aren&apos;t from sanctioned sources — without revealing your identity.
+            Privacy with accountability. Veil supports timelocked reveal keys
+            for selective disclosure and Privacy Pools-style subset proofs for
+            showing funds belong to an approved set without revealing which
+            deposit is yours.
           </p>
         </div>
 
@@ -147,7 +148,7 @@ export default function CompliancePage() {
             }`}
           >
             <Eye className="w-3.5 h-3.5" />
-            Viewing Keys
+            Reveal Keys
           </button>
         </div>
 
@@ -160,8 +161,8 @@ export default function CompliancePage() {
               <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
                 <p>
                   Based on <a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4563364" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80 inline-flex items-center gap-1">Vitalik Buterin&apos;s 2023 paper <ExternalLink className="w-3 h-3" /></a>,
-                  Privacy Pools let users prove their deposited funds aren&apos;t from sanctioned
-                  or stolen sources — <strong className="text-foreground">without revealing which deposit is theirs</strong>.
+                  Privacy Pools let users prove their deposit belongs to an approved
+                  association set — <strong className="text-foreground">without revealing which deposit is theirs</strong>.
                 </p>
                 <p>
                   An <strong className="text-foreground">Association Set Provider (ASP)</strong> screens
@@ -185,8 +186,8 @@ export default function CompliancePage() {
      │                   │       (ZK: "I'm in   │
      │                   │        the clean set")│
      │                   │                   │
-  privacy     compliance without     funds clean
-  preserved   breaking privacy       + private`}
+  privacy     compliance signal      approved set
+  preserved   without full reveal     + private`}
                 </pre>
               </div>
             </div>
@@ -254,33 +255,32 @@ export default function CompliancePage() {
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <span>
-                In demo mode, the ASP auto-approves all commitments. In production,
-                the ASP would check deposits against OFAC sanctions lists, known
-                stolen fund addresses, and other risk signals before adding them to
-                the approved subset.
+                In demo mode, the ASP auto-approves all commitments. A production
+                ASP would integrate sanctions, stolen-fund, and risk-screening
+                signals before adding deposits to an approved subset.
               </span>
             </div>
           </div>
         )}
 
-        {/* ── Viewing Keys Tab ── */}
+        {/* ── Reveal Keys Tab ── */}
         {activeTab === "viewing-keys" && (
           <div>
             <div className="mb-8">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-violet-200/60 bg-violet-50/50 text-xs text-violet-700 mb-4">
                 <Eye className="w-3 h-3" />
-                Timelocked Viewing Keys
+                Timelocked Reveal Keys
               </div>
               <p className="text-muted-foreground leading-relaxed text-sm">
-                Enter a viewing key to decrypt transaction history. Entries become
+                Enter a reveal key to decrypt selected transaction details. Entries become
                 viewable only after their configured timelock period expires —
-                preserving real-time privacy while enabling retroactive auditing.
+                supporting selective auditability without giving anyone spending authority.
               </p>
             </div>
 
         {/* Viewing key input */}
         <div className="mb-8">
-          <label className="block text-sm font-medium mb-2">Viewing Key</label>
+          <label className="block text-sm font-medium mb-2">Reveal Key</label>
           <div className="flex gap-3">
             <input
               type="text"
@@ -307,26 +307,25 @@ export default function CompliancePage() {
             {/* How it works */}
             <div className="rounded-xl border border-border/50 p-6">
               <h3 className="text-base font-semibold mb-4">
-                How viewing keys work
+                How reveal keys work
               </h3>
               <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
                 <p>
-                  When you make a deposit with viewing keys enabled, Veil
+                  When you make a deposit with reveal keys enabled, Veil
                   generates a separate cryptographic key that can{" "}
                   <strong className="text-foreground">read</strong> transaction
                   details but{" "}
                   <strong className="text-foreground">
                     cannot spend funds
                   </strong>
-                  . This viewing key is timelocked — the data it decrypts is
+                  . This reveal key is timelocked — the data it decrypts is
                   only accessible after a configurable delay (e.g. 6, 12, 24, or
                   72 hours).
                 </p>
                 <p>
-                  This means your transactions are fully private in real-time.
-                  After the timelock expires, authorized parties (regulators,
-                  auditors, or compliance officers) can verify the transaction
-                  details using the viewing key.
+                  After the timelock expires, authorized reviewers can verify
+                  the disclosed transaction details using the reveal key. The key
+                  cannot withdraw funds or control the wallet.
                 </p>
               </div>
             </div>
@@ -340,23 +339,23 @@ export default function CompliancePage() {
                 {[
                   {
                     icon: <Shield className="w-4 h-4" />,
-                    title: "KYC/AML compatible",
-                    desc: "Meet regulatory obligations without sacrificing user privacy during transactions.",
+                    title: "Compliance-oriented",
+                    desc: "Support audit workflows without publishing every payment detail by default.",
                   },
                   {
                     icon: <Clock className="w-4 h-4" />,
                     title: "Configurable timelocks",
-                    desc: "Choose 6h, 12h, 24h, or 72h delay before audit access. Real-time privacy is always preserved.",
+                    desc: "Choose 6h, 12h, 24h, or 72h delay before selected details become viewable.",
                   },
                   {
                     icon: <Lock className="w-4 h-4" />,
                     title: "Cannot spend funds",
-                    desc: "The viewing key only decrypts metadata (amount, timestamp, leaf index). It has zero spending authority.",
+                    desc: "The reveal key only decrypts metadata (amount, timestamp, leaf index). It has zero spending authority.",
                   },
                   {
                     icon: <Eye className="w-4 h-4" />,
                     title: "Selective disclosure",
-                    desc: "You choose who gets the viewing key. Share it with a regulator, keep it private, or never generate one.",
+                    desc: "You choose who gets the reveal key. Share it with a reviewer, keep it private, or never generate one.",
                   },
                 ].map((item) => (
                   <div
@@ -382,10 +381,10 @@ export default function CompliancePage() {
               <h3 className="text-base font-semibold mb-4">The flow</h3>
               <div className="space-y-3">
                 {[
-                  "Deposit with viewing key enabled (on the Deposit page)",
-                  "Save both the secret note AND the viewing key",
-                  "Share the viewing key with your auditor or compliance officer",
-                  "After the timelock expires, they paste the key here to view transaction details",
+                  "Deposit with reveal key enabled",
+                  "Save both the secret note and the reveal key",
+                  "Share the reveal key only with an authorized reviewer",
+                  "After the timelock expires, they paste the key here to inspect disclosed details",
                 ].map((step, i) => (
                   <div key={i} className="flex items-start gap-3 text-sm">
                     <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
@@ -402,7 +401,7 @@ export default function CompliancePage() {
             {/* Try it */}
             <div className="rounded-xl border border-violet-200/60 bg-violet-50/30 p-5 text-center">
               <p className="text-sm text-violet-700 mb-3">
-                Don&apos;t have a viewing key yet? Deposit first and enable viewing
+                Don&apos;t have a reveal key yet? Deposit first and enable reveal
                 keys.
               </p>
               <Button
@@ -422,7 +421,7 @@ export default function CompliancePage() {
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <span>
-                For demo purposes, enter any text as a viewing key to see
+                For demo purposes, enter any text as a reveal key to see
                 timelocked entries. The same key always produces the same
                 deterministic results.
               </span>
@@ -459,7 +458,7 @@ export default function CompliancePage() {
               <div className="flex items-start gap-2 text-xs text-muted-foreground">
                 <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                 <span>
-                  In production, viewing keys decrypt notes stored on-chain via
+                  In production, reveal keys decrypt notes stored on-chain via
                   the pool contract. The SDK&apos;s{" "}
                   <code className="font-mono bg-muted px-1 py-0.5 rounded text-[11px]">
                     decryptWithViewingKey()

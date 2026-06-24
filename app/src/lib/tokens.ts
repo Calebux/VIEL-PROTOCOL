@@ -27,6 +27,18 @@ export interface PoolTier {
   tokenSymbol: string;
 }
 
+export interface PoolTierSplit {
+  tier: PoolTier;
+  count: number;
+}
+
+export interface PoolAmountBreakdown {
+  requestedRaw: bigint;
+  coveredRaw: bigint;
+  remainderRaw: bigint;
+  splits: PoolTierSplit[];
+}
+
 // ── Token definitions ──
 
 export const SUPPORTED_TOKENS: SupportedToken[] = [
@@ -165,6 +177,62 @@ export function getAllActiveTiers(): PoolTier[] {
 /** Get a specific token definition */
 export function getToken(symbol: string): SupportedToken | undefined {
   return SUPPORTED_TOKENS.find((t) => t.symbol === symbol);
+}
+
+export function parseTokenAmount(value: string, decimals: number): bigint | null {
+  const normalized = value.trim().replace(/,/g, "");
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+
+  const [whole, fractional = ""] = normalized.split(".");
+  if (fractional.length > decimals) return null;
+
+  const paddedFractional = fractional.padEnd(decimals, "0");
+  return BigInt(whole || "0") * 10n ** BigInt(decimals) + BigInt(paddedFractional || "0");
+}
+
+export function formatTokenAmount(raw: bigint, decimals: number, symbol: string): string {
+  const scale = 10n ** BigInt(decimals);
+  const whole = raw / scale;
+  const fractional = raw % scale;
+  const suffix = symbol ? ` ${symbol}` : "";
+
+  if (fractional === 0n) {
+    return `${whole.toLocaleString()}${suffix}`;
+  }
+
+  const fractionalText = fractional.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return `${whole.toLocaleString()}.${fractionalText}${suffix}`;
+}
+
+export function decomposePoolAmount(
+  amountRaw: bigint,
+  tiers: PoolTier[]
+): PoolAmountBreakdown {
+  let remainder = amountRaw;
+  const splits: PoolTierSplit[] = [];
+
+  const sortedTiers = [...tiers].sort((a, b) => {
+    const diff = BigInt(b.amount) - BigInt(a.amount);
+    return diff > 0n ? 1 : diff < 0n ? -1 : 0;
+  });
+
+  for (const tier of sortedTiers) {
+    const tierAmount = BigInt(tier.amount);
+    if (tierAmount <= 0n || remainder < tierAmount) continue;
+
+    const count = remainder / tierAmount;
+    if (count > 0n) {
+      splits.push({ tier, count: Number(count) });
+      remainder -= count * tierAmount;
+    }
+  }
+
+  return {
+    requestedRaw: amountRaw,
+    coveredRaw: amountRaw - remainder,
+    remainderRaw: remainder,
+    splits,
+  };
 }
 
 // ── Swap pairs ──

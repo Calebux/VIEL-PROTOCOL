@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -27,7 +27,16 @@ import {
   addNote,
   generateViewingKey,
 } from "@/lib/noteStore";
-import { getActiveTokens, getPoolTiers, type SupportedToken, type PoolTier } from "@/lib/tokens";
+import {
+  decomposePoolAmount,
+  formatTokenAmount,
+  getActiveTokens,
+  getPoolTiers,
+  parseTokenAmount,
+  type PoolAmountBreakdown,
+  type PoolTier,
+  type SupportedToken,
+} from "@/lib/tokens";
 import { executeDeposit, type DepositResult } from "@/lib/deposit";
 import { executeWithdraw } from "@/lib/withdraw";
 import { getCorridor } from "@/lib/corridors";
@@ -40,36 +49,69 @@ type DepositState = "idle" | "connecting" | "depositing" | "success";
 type ClaimStep = "paste" | "withdrawing" | "choice" | "offramp" | "success";
 
 interface ClaimPayload {
-  note: string;
-  poolId: string;
+  note?: string;
+  poolId?: string;
+  notes?: { note: string; poolId: string }[];
+}
+
+interface BundledDeposit {
+  result: DepositResult;
+  tier: PoolTier;
 }
 
 /* ── Helpers ───────────────────────────────────────────────── */
 
-function encodeClaimPayload(note: string, poolId: string): string {
-  return btoa(JSON.stringify({ note, poolId }));
+function encodeClaimPayload(notes: { note: string; poolId: string }[]): string {
+  if (notes.length === 1) {
+    return btoa(JSON.stringify({ note: notes[0].note, poolId: notes[0].poolId }));
+  }
+  return btoa(JSON.stringify({ notes }));
 }
 
 function decodeClaimPayload(encoded: string): ClaimPayload | null {
   try {
     const data = JSON.parse(atob(encoded));
     if (data.note && data.poolId) return data as ClaimPayload;
+    if (
+      Array.isArray(data.notes) &&
+      data.notes.every((item: { note?: unknown; poolId?: unknown }) => (
+        typeof item.note === "string" && typeof item.poolId === "string"
+      ))
+    ) {
+      return data as ClaimPayload;
+    }
     return null;
   } catch {
     return null;
   }
 }
 
+function claimPayloadItems(payload?: ClaimPayload | null): { note: string; poolId: string }[] {
+  if (!payload) return [];
+  if (payload.notes?.length) return payload.notes;
+  if (payload.note && payload.poolId) return [{ note: payload.note, poolId: payload.poolId }];
+  return [];
+}
+
 function parseNoteAmount(noteString: string): string {
+  const raw = parseNoteRaw(noteString);
+  if (raw === null) return "?";
+  return formatTokenAmount(raw, 7, "USDC");
+}
+
+function parseNoteRaw(noteString: string): bigint | null {
   const parts = noteString.split("-");
-  if (parts.length !== 5 || parts[0] !== "veil") return "?";
-  const raw = BigInt(parts[3]);
-  const scale = 10n ** 7n;
-  const whole = raw / scale;
-  const frac = raw % scale;
-  if (frac === 0n) return `${whole} USDC`;
-  const fracStr = frac.toString().padStart(7, "0").replace(/0+$/, "");
-  return `${whole}.${fracStr} USDC`;
+  if (parts.length !== 5 || parts[0] !== "veil") return null;
+  try {
+    return BigInt(parts[3]);
+  } catch {
+    return null;
+  }
+}
+
+function formatClaimItemsAmount(items: { note: string }[]): string {
+  const totalRaw = items.reduce((sum, item) => sum + (parseNoteRaw(item.note) ?? 0n), 0n);
+  return formatTokenAmount(totalRaw, 7, "USDC");
 }
 
 function shortenAddress(addr: string): string {
@@ -86,9 +128,10 @@ function DepositTab() {
   const [token, setToken] = useState<SupportedToken>(tokens[0]);
   const tiers = getPoolTiers(token.symbol);
   const [tier, setTier] = useState<PoolTier>(tiers[0]);
+  const [amountInput, setAmountInput] = useState("");
   const [state, setState] = useState<DepositState>("idle");
   const [error, setError] = useState("");
-  const [depositResult, setDepositResult] = useState<DepositResult | null>(null);
+  const [depositResults, setDepositResults] = useState<BundledDeposit[]>([]);
   const [fundingStatus, setFundingStatus] = useState<"idle" | "funding" | "funded" | "error">("idle");
   const [address, setAddress] = useState("");
   const [copied, setCopied] = useState(false);
@@ -101,8 +144,31 @@ function DepositTab() {
 
   useEffect(() => {
     const newTiers = getPoolTiers(token.symbol);
-    if (newTiers.length > 0) setTier(newTiers[0]);
+    if (newTiers.length > 0) {
+      setTier(newTiers[0]);
+      setAmountInput(formatTokenAmount(BigInt(newTiers[0].amount), token.decimals, "").trim());
+    }
   }, [token.symbol]);
+
+  useEffect(() => {
+    if (!amountInput && tier) {
+      setAmountInput(formatTokenAmount(BigInt(tier.amount), token.decimals, "").trim());
+    }
+  }, [amountInput, tier, token.decimals]);
+
+  const amountRaw = useMemo(
+    () => parseTokenAmount(amountInput, token.decimals),
+    [amountInput, token.decimals]
+  );
+  const amountBreakdown: PoolAmountBreakdown | null = useMemo(
+    () => (amountRaw && amountRaw > 0n ? decomposePoolAmount(amountRaw, tiers) : null),
+    [amountRaw, tiers]
+  );
+  const canDeposit = !!amountBreakdown && amountBreakdown.remainderRaw === 0n && amountBreakdown.splits.length > 0;
+  const totalDeposits = amountBreakdown?.splits.reduce((sum, split) => sum + split.count, 0) ?? 0;
+  const breakdownText = amountBreakdown?.splits
+    .map((split) => `${split.count}x ${split.tier.label}`)
+    .join(" + ");
 
   // Connect Freighter on mount
   useEffect(() => {
@@ -165,26 +231,45 @@ function DepositTab() {
       setAddress(addr);
 
       setState("depositing");
-      const result = await executeDeposit(addr, BigInt(tier.amount), tier.poolId);
+      if (!canDeposit || !amountBreakdown) {
+        throw new Error("Enter an amount that can be split across the available pool tiers.");
+      }
 
-      const stored = addNote({
-        noteString: result.noteString,
-        token: token.symbol,
-        amountDisplay: tier.label,
-        amountRaw: tier.amount,
-        txHash: result.txHash,
-      });
+      const bundledDeposits: BundledDeposit[] = [];
+      let firstStoredId = "";
 
-      setDepositResult(result);
+      for (const split of amountBreakdown.splits) {
+        for (let i = 0; i < split.count; i += 1) {
+          const result = await executeDeposit(addr, BigInt(split.tier.amount), split.tier.poolId);
+          const stored = addNote({
+            noteString: result.noteString,
+            token: token.symbol,
+            amountDisplay: split.tier.label,
+            amountRaw: split.tier.amount,
+            txHash: result.txHash,
+          });
+          if (!firstStoredId) firstStoredId = stored.id;
+          bundledDeposits.push({ result, tier: split.tier });
+        }
+      }
+
+      setDepositResults(bundledDeposits);
 
       // Generate share link
-      const payload = encodeClaimPayload(result.noteString, tier.poolId);
+      const payload = encodeClaimPayload(
+        bundledDeposits.map((deposit) => ({
+          note: deposit.result.noteString,
+          poolId: deposit.tier.poolId,
+        }))
+      );
       const link = `${window.location.origin}/wallet/receive?claim=${payload}`;
       setShareLink(link);
 
       // Generate viewing key
-      const vk = generateViewingKey(stored.id, 24);
-      setViewingKey(vk.viewingKey);
+      if (firstStoredId) {
+        const vk = generateViewingKey(firstStoredId, 24);
+        setViewingKey(vk.viewingKey);
+      }
 
       setState("success");
     } catch (err: unknown) {
@@ -225,22 +310,33 @@ function DepositTab() {
     );
   }
 
-  if (state === "success" && depositResult) {
+  if (state === "success" && depositResults.length > 0) {
+    const totalRaw = depositResults.reduce((sum, deposit) => sum + BigInt(deposit.tier.amount), 0n);
+    const totalLabel = formatTokenAmount(totalRaw, token.decimals, token.symbol);
     return (
       <div className="py-8 space-y-5">
         <div className="text-center">
           <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
             <Check className="h-8 w-8 text-emerald-600" />
           </div>
-          <h2 className="text-xl font-semibold">{tier.label} shielded!</h2>
+          <h2 className="text-xl font-semibold">{totalLabel} shielded!</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Your shielded note was saved to the wallet
+            {depositResults.length === 1
+              ? "Your shielded note was saved to the wallet"
+              : `${depositResults.length} shielded notes were saved to the wallet`}
           </p>
         </div>
 
         <div className="rounded-lg bg-muted/50 px-4 py-3">
-          <div className="text-xs text-muted-foreground mb-1">Transaction</div>
-          <div className="text-xs font-mono break-all">{depositResult.txHash}</div>
+          <div className="text-xs text-muted-foreground mb-2">Deposits</div>
+          <div className="space-y-1">
+            {depositResults.map((deposit, index) => (
+              <div key={`${deposit.result.txHash}-${index}`} className="flex items-center justify-between gap-3 text-xs">
+                <span className="font-medium">{deposit.tier.label}</span>
+                <span className="font-mono truncate text-muted-foreground">{deposit.result.txHash}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Share withdrawal link */}
@@ -279,22 +375,22 @@ function DepositTab() {
           </span>
         </div>
 
-        {/* Viewing key */}
+        {/* Reveal key */}
         {viewingKey && (
           <div className="rounded-xl border border-border/60 p-5 space-y-2">
             <div className="flex items-center gap-2 text-sm font-semibold">
               <Eye className="h-4 w-4" />
-              Transfer Receipt (Viewing Key)
+              Transfer Receipt (Reveal Key)
             </div>
             <p className="text-xs text-muted-foreground">
-              This key lets auditors verify the transfer without spending the funds.
+              This key lets authorized reviewers verify disclosed transfer details without spending the funds.
             </p>
             <div className="bg-muted rounded-lg p-3 text-xs font-mono break-all">{viewingKey}</div>
           </div>
         )}
 
         <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => { setState("idle"); setDepositResult(null); setShareLink(""); setViewingKey(""); }}>
+          <Button variant="outline" className="flex-1" onClick={() => { setState("idle"); setDepositResults([]); setShareLink(""); setViewingKey(""); }}>
             Receive More
           </Button>
           <Button asChild className="flex-1">
@@ -345,7 +441,10 @@ function DepositTab() {
           {tiers.map((t) => (
             <button
               key={t.amount}
-              onClick={() => setTier(t)}
+              onClick={() => {
+                setTier(t);
+                setAmountInput(formatTokenAmount(BigInt(t.amount), token.decimals, "").trim());
+              }}
               className={`py-3 rounded-xl border text-sm font-semibold transition-colors ${
                 tier.amount === t.amount
                   ? "border-emerald-500 bg-emerald-50 text-emerald-700"
@@ -355,6 +454,31 @@ function DepositTab() {
               {t.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Custom amount</label>
+        <input
+          inputMode="decimal"
+          value={amountInput}
+          onChange={(event) => setAmountInput(event.target.value)}
+          placeholder={`Amount in ${token.symbol}`}
+          className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="mt-2 min-h-10 text-xs text-muted-foreground">
+          {amountInput && !amountRaw && "Enter a valid amount."}
+          {amountBreakdown && amountBreakdown.remainderRaw > 0n && (
+            <span>
+              Available pools cover {formatTokenAmount(amountBreakdown.coveredRaw, token.decimals, token.symbol)}.
+              {" "}Uncovered: {formatTokenAmount(amountBreakdown.remainderRaw, token.decimals, token.symbol)}.
+            </span>
+          )}
+          {canDeposit && (
+            <span>
+              Split into {breakdownText}. {totalDeposits > 1 ? `${totalDeposits} deposits will be signed.` : "1 deposit will be signed."}
+            </span>
+          )}
         </div>
       </div>
 
@@ -419,7 +543,9 @@ function DepositTab() {
       {/* Shield into pool */}
       <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/30 p-5 text-center">
         <Download className="h-8 w-8 text-emerald-600 mx-auto mb-2" />
-        <div className="text-sm font-semibold mb-1">Shield {tier.label}</div>
+        <div className="text-sm font-semibold mb-1">
+          Shield {amountRaw ? formatTokenAmount(amountRaw, token.decimals, token.symbol) : tier.label}
+        </div>
         <p className="text-xs text-muted-foreground mb-1">Deposit into the Veil privacy pool</p>
         <p className="text-[10px] text-muted-foreground/60">Note is automatically saved to your wallet</p>
       </div>
@@ -447,9 +573,9 @@ function DepositTab() {
         </Button>
       </div>
 
-      <Button className="w-full h-12 text-base" onClick={handleDeposit}>
+      <Button className="w-full h-12 text-base" onClick={handleDeposit} disabled={!canDeposit}>
         <Download className="h-5 w-5 mr-2" />
-        Shield {tier.label}
+        Shield {amountRaw ? formatTokenAmount(amountRaw, token.decimals, token.symbol) : tier.label}
       </Button>
     </div>
   );
@@ -458,11 +584,13 @@ function DepositTab() {
 /* ── Claim Tab ─────────────────────────────────────────────── */
 
 function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
+  const initialItems = claimPayloadItems(initialClaim);
   const [step, setStep] = useState<ClaimStep>("paste");
-  const [noteString, setNoteString] = useState(initialClaim?.note || "");
-  const [poolId, setPoolId] = useState(initialClaim?.poolId || "");
+  const [claimItems, setClaimItems] = useState<{ note: string; poolId: string }[]>(initialItems);
+  const [noteString, setNoteString] = useState(initialItems[0]?.note || "");
+  const [poolId, setPoolId] = useState(initialItems[0]?.poolId || "");
   const [walletAddress, setWalletAddress] = useState("");
-  const [txHash, setTxHash] = useState("");
+  const [txHashes, setTxHashes] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState("");
   const [viewingKey, setViewingKey] = useState("");
@@ -474,11 +602,19 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
   const [offRampResult, setOffRampResult] = useState<{ txId: string; message?: string } | null>(null);
 
   useEffect(() => {
-    if (initialClaim?.note) {
-      setNoteString(initialClaim.note);
-      setPoolId(initialClaim.poolId);
+    const items = claimPayloadItems(initialClaim);
+    if (items.length > 0) {
+      setClaimItems(items);
+      setNoteString(items[0].note);
+      setPoolId(items[0].poolId);
     }
   }, [initialClaim]);
+
+  const activeClaimItems = claimItems.length > 0
+    ? claimItems
+    : noteString && noteString.startsWith("veil-")
+      ? [{ note: noteString, poolId }]
+      : [];
 
   const connectAndWithdraw = async () => {
     setError("");
@@ -493,28 +629,40 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
       const address = typeof addr === "string" ? addr : (addr as { address: string }).address;
       setWalletAddress(address);
 
-      const result = await executeWithdraw(
-        noteString,
-        address,
-        (s) => setProgress(s),
-        poolId || undefined
-      );
-
-      setTxHash(result.txHash);
-
-      try {
-        const stored = addNote({
-          noteString,
-          token: "USDC",
-          amountDisplay: parseNoteAmount(noteString),
-          amountRaw: noteString.split("-")[3] || "0",
-          txHash: result.txHash,
-        });
-        const vk = generateViewingKey(stored.id, 24);
-        setViewingKey(vk.viewingKey);
-      } catch {
-        // Non-fatal
+      if (activeClaimItems.length === 0) {
+        throw new Error("Enter a valid secret note.");
       }
+
+      const completedTxHashes: string[] = [];
+      for (let i = 0; i < activeClaimItems.length; i += 1) {
+        const item = activeClaimItems[i];
+        const result = await executeWithdraw(
+          item.note,
+          address,
+          (s) => setProgress(activeClaimItems.length > 1 ? `Note ${i + 1}/${activeClaimItems.length}: ${s}` : s),
+          item.poolId || undefined
+        );
+
+        completedTxHashes.push(result.txHash);
+
+        try {
+          const stored = addNote({
+            noteString: item.note,
+            token: "USDC",
+            amountDisplay: parseNoteAmount(item.note),
+            amountRaw: item.note.split("-")[3] || "0",
+            txHash: result.txHash,
+          });
+          if (i === 0) {
+            const vk = generateViewingKey(stored.id, 24);
+            setViewingKey(vk.viewingKey);
+          }
+        } catch {
+          // Non-fatal
+        }
+      }
+
+      setTxHashes(completedTxHashes);
 
       setStep("choice");
     } catch (err) {
@@ -528,8 +676,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
     setProgress("Submitting off-ramp...");
 
     try {
-      const parts = noteString.split("-");
-      const rawAmount = BigInt(parts[3] || "0");
+      const rawAmount = activeClaimItems.reduce((sum, item) => sum + (parseNoteRaw(item.note) ?? 0n), 0n);
       const displayAmount = Number(rawAmount) / 1e7;
 
       const result = await rampProvider.offRamp({
@@ -573,16 +720,27 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
             <label className="text-xs font-medium text-muted-foreground block">Secret Note</label>
             <textarea
               value={noteString}
-              onChange={(e) => setNoteString(e.target.value.trim())}
+              onChange={(e) => {
+                const nextNote = e.target.value.trim();
+                setNoteString(nextNote);
+                setClaimItems([]);
+              }}
               placeholder="veil-abc123...-def456...-1000000000-0"
               rows={3}
               className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
-            {noteString && noteString.startsWith("veil-") && (
+            {claimItems.length <= 1 && noteString && noteString.startsWith("veil-") && (
               <div className="flex items-center gap-2 text-sm">
                 <Shield className="h-4 w-4 text-emerald-600" />
                 <span className="font-medium">{parseNoteAmount(noteString)}</span>
                 <span className="text-muted-foreground">shielded</span>
+              </div>
+            )}
+            {claimItems.length > 1 && (
+              <div className="flex items-center gap-2 text-sm">
+                <Shield className="h-4 w-4 text-emerald-600" />
+                <span className="font-medium">{formatClaimItemsAmount(claimItems)}</span>
+                <span className="text-muted-foreground">across {claimItems.length} notes</span>
               </div>
             )}
           </div>
@@ -596,10 +754,10 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
           <Button
             className="w-full"
             onClick={connectAndWithdraw}
-            disabled={!noteString || !noteString.startsWith("veil-")}
+            disabled={activeClaimItems.length === 0}
           >
             <Download className="h-4 w-4 mr-2" />
-            Connect Wallet & Withdraw
+            Connect Wallet & Withdraw{activeClaimItems.length > 1 ? ` ${activeClaimItems.length} Notes` : ""}
           </Button>
         </>
       )}
@@ -628,7 +786,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
             </div>
             <h3 className="font-semibold">Withdrawal Complete</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              {parseNoteAmount(noteString)} now in your wallet
+              {formatClaimItemsAmount(activeClaimItems)} now in your wallet
               {walletAddress && ` (${shortenAddress(walletAddress)})`}
             </p>
           </div>
@@ -731,19 +889,23 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
             <p className="text-sm text-muted-foreground mt-1">
               {offRampResult
                 ? "Your funds are being delivered to your bank account"
-                : `${parseNoteAmount(noteString)} is now in your wallet`}
+                : `${formatClaimItemsAmount(activeClaimItems)} is now in your wallet`}
             </p>
           </div>
 
           <div className="rounded-xl border border-border/60 p-5 space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Amount</span>
-              <span className="font-medium">{parseNoteAmount(noteString)}</span>
+              <span className="font-medium">{formatClaimItemsAmount(activeClaimItems)}</span>
             </div>
-            {txHash && (
-              <div className="flex justify-between">
+            {txHashes.length > 0 && (
+              <div className="space-y-1">
                 <span className="text-muted-foreground">Withdraw Tx</span>
-                <span className="font-mono text-xs truncate ml-4">{txHash}</span>
+                {txHashes.map((hash, index) => (
+                  <div key={`${hash}-${index}`} className="font-mono text-xs truncate">
+                    {hash}
+                  </div>
+                ))}
               </div>
             )}
             {offRampResult && (
@@ -764,7 +926,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
             <div className="rounded-xl border border-border/60 p-5 space-y-2">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <Eye className="h-4 w-4" />
-                Viewing Key
+                Reveal Key
               </div>
               <div className="bg-muted rounded-lg p-3 text-xs font-mono break-all">{viewingKey}</div>
             </div>

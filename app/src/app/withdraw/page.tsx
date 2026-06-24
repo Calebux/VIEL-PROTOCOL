@@ -573,7 +573,7 @@ function WithdrawInner() {
                   "Nullifier marked spent — double-spend impossible",
                   ...(swapResult
                     ? ["Funds routed through swap router — token type changed for two layers of unlinkability"]
-                    : ["Funds transferred with zero on-chain link to depositor"]),
+                    : ["Funds transferred without a public sender-recipient link"]),
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-3 text-sm">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
@@ -596,7 +596,7 @@ function WithdrawInner() {
                       View compliance audit
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Use a viewing key to verify this transaction after
+                      Use a reveal key to verify this transaction after
                       timelock expires
                     </div>
                   </div>

@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Veil Protocol — Private Payments on Stellar",
   description:
-    "Shielded stablecoin transfers using ZK proofs on Soroban. Deposit, withdraw privately, and maintain compliance with timelocked viewing keys.",
+    "Shielded stablecoin payments on Stellar using Soroban ZK proofs, fixed-denomination privacy pools, and optional reveal keys for selective disclosure.",
 };
 
 export default function RootLayout({

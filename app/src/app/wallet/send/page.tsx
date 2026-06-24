@@ -81,18 +81,19 @@ function SuccessScreen({ txHash, noteId }: { txHash: string; noteId: string }) {
         <div className="text-xs font-mono break-all">{txHash}</div>
       </div>
 
-      {/* Viewing Key Section */}
+      {/* Reveal Key Section */}
       <div className="rounded-xl border border-border/60 p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Eye className="h-4 w-4 text-violet-600" />
-          <span className="text-sm font-semibold">Viewing Key</span>
+          <span className="text-sm font-semibold">Reveal Key</span>
         </div>
 
         {!vk ? (
           <>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Generate a viewing key for this transaction. Share it with an auditor
-              to let them verify details after the timelock expires. The key cannot spend funds.
+              Generate a reveal key for this transaction. Share it only with an
+              authorized reviewer so they can verify disclosed details after the
+              timelock expires. The key cannot spend funds.
             </p>
 
             <div>
@@ -121,7 +122,7 @@ function SuccessScreen({ txHash, noteId }: { txHash: string; noteId: string }) {
               onClick={handleGenerate}
             >
               <Eye className="h-3.5 w-3.5" />
-              Generate Viewing Key
+              Generate Reveal Key
             </Button>
           </>
         ) : (

@@ -267,7 +267,7 @@ export default function Home() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border/60 bg-muted/50 text-sm text-muted-foreground">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Live on Stellar Mainnet</span>
+              <span>Mainnet pilot on Stellar</span>
             </div>
           </motion.div>
 
@@ -279,7 +279,7 @@ export default function Home() {
           >
             <span className="font-body">Private transfers,</span>
             <br />
-            <span className="font-display italic font-normal">Smarter</span>{" "}
+            <span className="font-display italic font-normal">Selective</span>{" "}
             <span className="font-body">compliance</span>
           </motion.h1>
 
@@ -290,15 +290,15 @@ export default function Home() {
             className="text-center text-base sm:text-lg text-muted-foreground max-w-2xl mb-10 leading-relaxed"
           >
             Veil is a shielded wallet and private remittance protocol on Stellar.
-            Send, receive, and transfer across borders with zero on-chain link between
-            sender and recipient. Your shielded wallet manages everything —
-            powered by Groth16 zero-knowledge proofs verified directly on Soroban.
+            Send and receive stablecoin payments through fixed-denomination privacy
+            pools, with no public sender-recipient link. Optional reveal keys let users
+            selectively disclose transaction details for audits, accounting, or compliance.
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="flex items-center gap-3">
             <Button size="lg" className="rounded-full px-7 gap-2" asChild>
               <Link href="/wallet">
-                Launch App
+                Send Private Payment
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>
@@ -307,6 +307,31 @@ export default function Home() {
                 Learn More
               </Link>
             </Button>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="mt-8 w-full max-w-3xl"
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 rounded-xl border border-border/60 bg-background/75 p-2 shadow-sm backdrop-blur">
+              {[
+                ["Network", "Mainnet"],
+                ["Contracts", "Live"],
+                ["Assets", "XLM / USDC"],
+                ["Pools", "Active"],
+                ["Mode", "Pilot"],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg bg-muted/45 px-3 py-2 text-center">
+                  <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+                  <div className="mt-0.5 text-sm font-semibold">{value}</div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              Mainnet pilot. Use small amounts while contracts and circuits are under review.
+            </p>
           </motion.div>
 
           <motion.div
@@ -328,12 +353,10 @@ export default function Home() {
               </h2>
               <p className="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-3xl mx-auto">
                 On public blockchains, every transfer is visible — anyone can trace who sent what to whom.
-                Veil breaks that link. When you deposit tokens into Veil, they enter a shielded pool.
-                When someone withdraws, a zero-knowledge proof proves they have the right to withdraw
-                without revealing which deposit is theirs. The result: <strong className="text-foreground">complete sender–recipient unlinkability
-                with built-in compliance</strong>. Timelocked viewing keys ensure that authorized auditors
-                can verify transaction history after a configurable period — giving you privacy today
-                and accountability when it matters.
+                Veil reduces that exposure by moving funds through fixed-denomination shielded pools.
+                When someone withdraws, a zero-knowledge proof shows they control a valid deposit
+                without revealing which deposit is theirs. The result is <strong className="text-foreground">no public
+                sender-recipient link</strong>, with optional reveal keys for user-controlled auditability.
               </p>
             </div>
           </FadeIn>
@@ -378,7 +401,7 @@ export default function Home() {
               <div className="text-center mb-16">
                 <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">How It Works</h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
-                  From receiving funds to sending privately across borders. No on-chain link between sender and recipient at any point.
+                  From receiving funds to sending privately across borders, Veil is designed to remove the public sender-recipient link.
                 </p>
               </div>
             </FadeIn>
@@ -409,7 +432,7 @@ export default function Home() {
                 {
                   step: "04",
                   title: "Stay compliant",
-                  desc: "Every transaction runs an automatic Privacy Pools compliance check. Timelocked viewing keys let authorized auditors verify activity after a configurable period — privacy today, accountability when it matters.",
+                  desc: "Privacy Pools checks and timelocked reveal keys support compliance workflows. Users can selectively disclose transaction details without giving auditors spending authority.",
                   icon: <ShieldCheck className="w-5 h-5" />,
                   color: "text-orange-600 bg-orange-50",
                 },
@@ -451,9 +474,9 @@ export default function Home() {
                     <h3 className="text-2xl font-bold tracking-tight mb-2">Private DEX Swaps</h3>
                     <p className="text-muted-foreground leading-relaxed mb-4">
                       Deposit XLM, withdraw as USDC — or any supported token pair. The on-chain swap router
-                      changes the token type during withdrawal, adding a second layer of unlinkability on top
-                      of the ZK proof. Sender-recipient link broken <strong className="text-foreground">and</strong> token
-                      type changed. Inspired by composable privacy on Starknet.
+                      changes the token type during withdrawal, adding another privacy layer on top
+                      of the ZK proof. The sender-recipient link is hidden from the public chain while
+                      the withdrawal can settle into a different asset.
                     </p>
                     <Button size="sm" className="rounded-full px-6 gap-2 bg-indigo-600 hover:bg-indigo-700" asChild>
                       <Link href="/wallet/send">
@@ -509,7 +532,7 @@ export default function Home() {
               <div className="text-center mb-16">
                 <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Why Veil?</h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
-                  Privacy without compromise. Real cryptography, real compliance tools, real on-chain verification.
+                  Real cryptography, real mainnet contracts, and compliance-oriented disclosure tools.
                 </p>
               </div>
             </FadeIn>
@@ -533,8 +556,8 @@ export default function Home() {
                 },
                 {
                   icon: <Eye className="w-5 h-5" />,
-                  title: "Timelocked Viewing Keys",
-                  desc: "Generate viewing keys that unlock transaction details after a configurable period. Regulators or auditors can verify activity without breaking real-time privacy.",
+                  title: "Timelocked Reveal Keys",
+                  desc: "Generate user-held reveal keys that disclose transaction details after a configurable period. The key can prove activity but cannot spend funds.",
                 },
                 {
                   icon: <Lock className="w-5 h-5" />,
@@ -544,17 +567,17 @@ export default function Home() {
                 {
                   icon: <ArrowLeftRight className="w-5 h-5" />,
                   title: "Private DEX Swaps",
-                  desc: "Withdraw as a different token via an on-chain swap router. Deposit XLM, receive USDC — two layers of unlinkability: sender-recipient link AND token type are both broken.",
+                  desc: "Withdraw as a different token via an on-chain swap router. Deposit XLM, receive USDC, and make public matching harder by changing the settlement asset.",
                 },
                 {
                   icon: <ShieldCheck className="w-5 h-5" />,
                   title: "Privacy Pools",
-                  desc: "Prove your funds are clean without revealing your identity. Based on Vitalik's Privacy Pools paper — compliance-ready privacy using subset membership proofs.",
+                  desc: "Prove membership in an approved set without revealing which deposit is yours. The demo uses subset membership proofs inspired by Vitalik's Privacy Pools paper.",
                 },
                 {
                   icon: <Sparkles className="w-5 h-5" />,
                   title: "Client-side Proving",
-                  desc: "Proofs are generated entirely in the browser using snarkjs WASM. Your secret never leaves your device. No server, no trusted third party.",
+                  desc: "Proofs are generated in the browser using snarkjs WASM. Your secret note stays on your device during proving.",
                 },
               ].map((feature, i) => (
                 <FadeIn key={feature.title} delay={i * 0.05}>
@@ -581,7 +604,7 @@ export default function Home() {
                 </h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
                   Most privacy protocols force a choice: hide everything or expose everything.
-                  Veil gives you both — private by default, auditable when required.
+                  Veil gives users privacy by default and controlled disclosure when an audit is required.
                 </p>
               </div>
             </FadeIn>
@@ -592,24 +615,24 @@ export default function Home() {
                   <div className="w-10 h-10 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center mb-4">
                     <Eye className="w-5 h-5" />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">Timelocked Viewing Keys</h3>
+                  <h3 className="text-lg font-semibold mb-2">Timelocked Reveal Keys</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                    Every deposit can generate a viewing key — a separate cryptographic key that
+                    Every deposit can generate a reveal key — a separate cryptographic key that
                     unlocks transaction details only after a configurable timelock period expires.
-                    While the timelock is active, the transaction remains fully private. Once it
-                    expires, authorized holders can see sender, recipient, amount, and memo.
+                    While the timelock is active, details are not disclosed through the key. Once it
+                    expires, authorized holders can inspect the disclosed transaction data.
                   </p>
                   <div className="flex items-center gap-2 text-sm">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span className="text-muted-foreground">Real-time privacy preserved</span>
+                    <span className="text-muted-foreground">Delayed disclosure by design</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm mt-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span className="text-muted-foreground">Post-timelock auditability for regulators</span>
+                    <span className="text-muted-foreground">Post-timelock auditability for authorized reviewers</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm mt-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span className="text-muted-foreground">User controls who gets the viewing key</span>
+                    <span className="text-muted-foreground">User controls who gets the reveal key</span>
                   </div>
                 </div>
               </FadeIn>
@@ -621,18 +644,17 @@ export default function Home() {
                   </div>
                   <h3 className="text-lg font-semibold mb-2">Why This Matters</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                    Regulators and institutions need auditability. Users need privacy. Without compliance
-                    tools, privacy protocols get banned or avoided by legitimate users. Veil's viewing key
-                    system means businesses can adopt shielded payments while still meeting KYC/AML
-                    obligations — making privacy sustainable, not just technically possible.
+                    Regulators and institutions need evidence. Users need privacy. Veil's reveal key
+                    system gives businesses a way to prove selected transaction details while keeping
+                    routine payments shielded from public-chain surveillance.
                   </p>
                   <div className="flex items-center gap-2 text-sm">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span className="text-muted-foreground">Institutional-grade audit trail</span>
+                    <span className="text-muted-foreground">User-controlled audit evidence</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm mt-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                    <span className="text-muted-foreground">Compatible with KYC/AML requirements</span>
+                    <span className="text-muted-foreground">Designed for compliance workflows</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm mt-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -662,7 +684,7 @@ export default function Home() {
               <div className="text-center mb-12">
                 <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Under the Hood</h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
-                  The complete privacy pipeline — from deposit commitment to zero-knowledge withdrawal.
+                  The privacy pipeline — from deposit commitment to zero-knowledge withdrawal.
                 </p>
               </div>
             </FadeIn>
@@ -686,7 +708,7 @@ export default function Home() {
       │                               │── nullifier check ────────▶ │
       │                               │── transfer 100 XLM ───────▶ │
       │                               │                              │
-   no link ◀────────────────────── zero knowledge ──────────────▶ funds`}
+   hidden link ◀────────────────── zero knowledge ──────────────▶ funds`}
                 </pre>
               </div>
             </FadeIn>
@@ -706,7 +728,7 @@ export default function Home() {
                 <div className="rounded-xl border border-border/50 bg-background p-5">
                   <h3 className="font-semibold mb-3">Security Guarantees</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Sender–recipient unlinkability</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> No public sender-recipient link</li>
                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Nullifier prevents double-spending</li>
                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> On-chain proof verification (no trust)</li>
                     <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> Anti-frontrun binding in circuit</li>
@@ -725,7 +747,7 @@ export default function Home() {
               <div className="text-center mb-12">
                 <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Get Started</h2>
                 <p className="text-muted-foreground">
-                  Start using Veil on Stellar mainnet in four simple steps.
+                  Try the Veil mainnet pilot in four simple steps.
                 </p>
               </div>
             </FadeIn>
@@ -754,7 +776,7 @@ export default function Home() {
                   {
                     num: "4",
                     title: "Try cross-border remittance",
-                    desc: "Pick a corridor (USD→MXN, EUR→NGN, and more), enter an amount, and watch the privacy pipeline execute in real time.",
+                    desc: "Pick a corridor, enter an amount, and preview how private remittance can move through shielded payment rails.",
                     href: "/wallet/receive",
                   },
                 ].map((step) => (
@@ -786,13 +808,13 @@ export default function Home() {
                 Privacy that plays by the rules
               </h2>
               <p className="text-muted-foreground mb-8">
-                Your shielded wallet handles everything — receive, send, and remit across
-                borders with zero-knowledge proofs and built-in compliance, all on Stellar.
+                Your shielded wallet handles deposits, private sends, bundled claim links,
+                and optional reveal keys for selective disclosure on Stellar.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <Button size="lg" className="rounded-full px-7 gap-2" asChild>
                   <Link href="/wallet">
-                    Launch App
+                    Open Shielded Wallet
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </Button>

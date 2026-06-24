@@ -368,10 +368,10 @@ function Dashboard() {
         )}
       </div>
 
-      {/* Viewing Keys Hint */}
+      {/* Reveal Keys Hint */}
       <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
         <Eye className="h-3 w-3 text-violet-400" />
-        <span>Tap the <Eye className="h-3 w-3 inline text-violet-500" /> on any transaction to generate a viewing key for auditors</span>
+        <span>Tap the <Eye className="h-3 w-3 inline text-violet-500" /> on any transaction to generate a reveal key for authorized reviewers</span>
       </div>
     </div>
   );

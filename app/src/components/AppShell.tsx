@@ -117,7 +117,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             Shielded Wallet
           </div>
           <div className="text-xs font-mono bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md">
-            Mainnet
+            Mainnet Pilot
           </div>
         </header>
 
