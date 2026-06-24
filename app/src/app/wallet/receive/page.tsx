@@ -313,6 +313,12 @@ function DepositTab() {
   if (state === "success" && depositResults.length > 0) {
     const totalRaw = depositResults.reduce((sum, deposit) => sum + BigInt(deposit.tier.amount), 0n);
     const totalLabel = formatTokenAmount(totalRaw, token.decimals, token.symbol);
+    const receiptRows = [
+      ["Amount", totalLabel],
+      ["Shielded notes", String(depositResults.length)],
+      ["Network", "Stellar Mainnet"],
+      ["Status", "Ready to claim"],
+    ];
     return (
       <div className="py-8 space-y-5">
         <div className="text-center">
@@ -327,11 +333,28 @@ function DepositTab() {
           </p>
         </div>
 
-        <div className="rounded-lg bg-muted/50 px-4 py-3">
-          <div className="text-xs text-muted-foreground mb-2">Deposits</div>
-          <div className="space-y-1">
+        <div className="rounded-xl border border-border/60 bg-card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">Transfer receipt</h3>
+              <p className="text-xs text-muted-foreground">Private payment is ready to share</p>
+            </div>
+            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+              Complete
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {receiptRows.map(([label, value]) => (
+              <div key={label} className="rounded-lg bg-muted/45 px-3 py-2">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+                <div className="mt-0.5 text-sm font-semibold">{value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-muted-foreground">Deposit transactions</div>
             {depositResults.map((deposit, index) => (
-              <div key={`${deposit.result.txHash}-${index}`} className="flex items-center justify-between gap-3 text-xs">
+              <div key={`${deposit.result.txHash}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-muted/35 px-3 py-2 text-xs">
                 <span className="font-medium">{deposit.tier.label}</span>
                 <span className="font-mono truncate text-muted-foreground">{deposit.result.txHash}</span>
               </div>
@@ -341,9 +364,9 @@ function DepositTab() {
 
         {/* Share withdrawal link */}
         <div className="rounded-xl border border-border/60 p-5 space-y-3">
-          <label className="text-xs font-medium text-muted-foreground">Share withdrawal link</label>
+          <label className="text-xs font-medium text-muted-foreground">Claim link</label>
           <p className="text-xs text-muted-foreground">
-            Send this link to your recipient so they can claim the funds
+            Send this link to your recipient so they can claim the full transfer.
           </p>
           <div className="bg-muted rounded-lg p-3 break-all text-xs font-mono">{shareLink}</div>
           <div className="flex gap-2">
@@ -370,8 +393,8 @@ function DepositTab() {
         <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-amber-50 text-amber-800 text-xs">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
-            This link contains the secret needed to withdraw funds. Anyone with this link can
-            claim the transfer. Share it securely (e.g. encrypted message, in-person).
+            This claim link contains the secret needed to withdraw funds. Anyone with this link can
+            claim the transfer. Share it through a secure channel.
           </span>
         </div>
 
@@ -791,6 +814,27 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
             </p>
           </div>
 
+          <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Claimed amount</span>
+              <span className="font-semibold">{formatClaimItemsAmount(activeClaimItems)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Shielded notes</span>
+              <span className="font-medium">{activeClaimItems.length}</span>
+            </div>
+            {txHashes.length > 0 && (
+              <div className="space-y-1.5">
+                <span className="text-muted-foreground">Withdrawal transactions</span>
+                {txHashes.map((hash, index) => (
+                  <div key={`${hash}-${index}`} className="rounded-lg bg-muted/45 px-3 py-2 font-mono text-xs truncate">
+                    {hash}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => setStep("success")}
             className="w-full text-left rounded-xl border border-border/60 p-5 hover:border-foreground/30 transition-colors bg-card"
@@ -893,16 +937,31 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
             </p>
           </div>
 
-          <div className="rounded-xl border border-border/60 p-5 space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Amount</span>
-              <span className="font-medium">{formatClaimItemsAmount(activeClaimItems)}</span>
+          <div className="rounded-xl border border-border/60 bg-card p-5 space-y-4 text-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold">Claim receipt</h3>
+                <p className="text-xs text-muted-foreground">Private withdrawal completed</p>
+              </div>
+              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                Settled
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-muted/45 px-3 py-2">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Amount</div>
+                <div className="mt-0.5 text-sm font-semibold">{formatClaimItemsAmount(activeClaimItems)}</div>
+              </div>
+              <div className="rounded-lg bg-muted/45 px-3 py-2">
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Notes</div>
+                <div className="mt-0.5 text-sm font-semibold">{activeClaimItems.length}</div>
+              </div>
             </div>
             {txHashes.length > 0 && (
               <div className="space-y-1">
-                <span className="text-muted-foreground">Withdraw Tx</span>
+                <span className="text-muted-foreground">Withdrawal transactions</span>
                 {txHashes.map((hash, index) => (
-                  <div key={`${hash}-${index}`} className="font-mono text-xs truncate">
+                  <div key={`${hash}-${index}`} className="rounded-lg bg-muted/45 px-3 py-2 font-mono text-xs truncate">
                     {hash}
                   </div>
                 ))}

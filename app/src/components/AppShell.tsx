@@ -116,8 +116,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="hidden lg:block text-sm font-medium text-muted-foreground">
             Shielded Wallet
           </div>
-          <div className="text-xs font-mono bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md">
-            Mainnet Pilot
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Pools active
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Relayer online
+              </span>
+            </div>
+            <div className="text-xs font-mono bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md">
+              Mainnet Pilot
+            </div>
           </div>
         </header>
 

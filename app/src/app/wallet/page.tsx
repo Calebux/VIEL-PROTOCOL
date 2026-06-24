@@ -149,6 +149,51 @@ function QuickAction({
   );
 }
 
+function PilotStatusStrip() {
+  const items = [
+    ["Network", "Mainnet Pilot"],
+    ["Pools", "Active"],
+    ["Relayer", "Online"],
+    ["Limit", "Small amounts"],
+  ];
+
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {items.map(([label, value]) => (
+          <div key={label} className="rounded-xl bg-muted/45 px-3 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              {label}
+            </div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-4">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="mt-1 text-lg sm:text-2xl font-bold tracking-tight">{value}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
+    </div>
+  );
+}
+
 /* ── Activity Row ────────────────────────────────────────── */
 
 function ActivityRow({ note }: { note: StoredNote }) {
@@ -272,6 +317,8 @@ function Dashboard() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 lg:px-6 py-6 space-y-6 pb-24 lg:pb-6">
+      <PilotStatusStrip />
+
       {/* Balance Card */}
       <div className="rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-6">
         <div className="flex items-center justify-between mb-1">
@@ -300,6 +347,24 @@ function Dashboard() {
         <QuickAction icon={Download} label="Receive" href="/wallet/receive" color="bg-emerald-100 text-emerald-600" />
         <QuickAction icon={ArrowLeftRight} label="Swap" href="/wallet/send" color="bg-purple-100 text-purple-600" />
         <QuickAction icon={Globe} label="Claim" href="/wallet/receive?tab=claim" color="bg-amber-100 text-amber-600" />
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard
+          label="Available notes"
+          value={String(unspent.length)}
+          detail="Ready to send"
+        />
+        <StatCard
+          label="Activity"
+          value={String(activity.length)}
+          detail="Local wallet"
+        />
+        <StatCard
+          label="Reveal keys"
+          value="On demand"
+          detail="User controlled"
+        />
       </div>
 
       {/* Recent Activity */}

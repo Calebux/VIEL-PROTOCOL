@@ -510,6 +510,40 @@ export default function DepositPage() {
               </div>
             </div>
 
+            <div className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Deposit receipt</h3>
+                  <p className="text-xs text-muted-foreground">Private funds are shielded and ready to share</p>
+                </div>
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  Complete
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  ["Amount", completedAmountLabel],
+                  ["Notes", String(completedDeposits.length)],
+                  ["Asset", selectedToken.symbol],
+                  ["Network", "Mainnet"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg bg-muted/45 px-3 py-2">
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+                    <div className="mt-0.5 text-sm font-semibold">{value}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-1.5">
+                <div className="text-xs font-medium text-muted-foreground">Deposit transactions</div>
+                {completedDeposits.map((deposit, index) => (
+                  <div key={`${deposit.result.txHash}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-muted/35 px-3 py-2 text-xs">
+                    <span className="font-medium">{deposit.tier.label}</span>
+                    <span className="font-mono truncate text-muted-foreground">{deposit.result.txHash}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Secret Note */}
             <div className="rounded-xl border border-border/50 p-6">
               <h3 className="text-lg font-semibold mb-1">
@@ -532,7 +566,7 @@ export default function DepositPage() {
                 {completedDeposits.length > 1 ? notesBundle : noteString}
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Button
                   variant="outline"
                   onClick={() => copyText(completedDeposits.length > 1 ? notesBundle : noteString, "note")}
