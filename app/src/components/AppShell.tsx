@@ -6,7 +6,6 @@ import {
   Wallet,
   Send,
   Download,
-  Globe,
   Settings,
   MoreHorizontal,
 } from "lucide-react";
@@ -22,14 +21,13 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Wallet", href: "/wallet", icon: Wallet, section: "main" },
   { label: "Send", href: "/wallet/send", icon: Send, section: "main" },
   { label: "Receive", href: "/wallet/receive", icon: Download, section: "main" },
-  { label: "Remit", href: "/remit", icon: Globe, section: "main" },
   { label: "Settings", href: "/wallet/settings", icon: Settings, section: "advanced" },
 ];
 
 const MOBILE_TABS: NavItem[] = [
   { label: "Wallet", href: "/wallet", icon: Wallet },
   { label: "Send", href: "/wallet/send", icon: Send },
-  { label: "Remit", href: "/remit", icon: Globe },
+  { label: "Receive", href: "/wallet/receive", icon: Download },
   { label: "More", href: "/wallet/settings", icon: MoreHorizontal },
 ];
 

@@ -490,7 +490,7 @@ export default function Home() {
                       real payment rails, made confidential with zero-knowledge proofs.
                     </p>
                     <Button size="sm" className="rounded-full px-6 gap-2 bg-emerald-600 hover:bg-emerald-700" asChild>
-                      <Link href="/remit">
+                      <Link href="/wallet/receive">
                         Try Remittance
                         <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
@@ -755,7 +755,7 @@ export default function Home() {
                     num: "4",
                     title: "Try cross-border remittance",
                     desc: "Pick a corridor (USD→MXN, EUR→NGN, and more), enter an amount, and watch the privacy pipeline execute in real time.",
-                    href: "/remit",
+                    href: "/wallet/receive",
                   },
                 ].map((step) => (
                   <Link

@@ -299,7 +299,7 @@ function Dashboard() {
         <QuickAction icon={Send} label="Send" href="/wallet/send" color="bg-blue-100 text-blue-600" />
         <QuickAction icon={Download} label="Receive" href="/wallet/receive" color="bg-emerald-100 text-emerald-600" />
         <QuickAction icon={ArrowLeftRight} label="Swap" href="/wallet/send" color="bg-purple-100 text-purple-600" />
-        <QuickAction icon={Globe} label="Remit" href="/remit" color="bg-amber-100 text-amber-600" />
+        <QuickAction icon={Globe} label="Claim" href="/wallet/receive?tab=claim" color="bg-amber-100 text-amber-600" />
       </div>
 
       {/* Recent Activity */}
