@@ -81,6 +81,12 @@ export const POOL_TIERS: PoolTier[] = [
     tokenSymbol: "XLM",
   },
   {
+    label: "50 XLM",
+    amount: "500000000",       // 50 * 10^7
+    poolId: process.env.NEXT_PUBLIC_XLM_POOL_50 || "",
+    tokenSymbol: "XLM",
+  },
+  {
     label: "100 XLM",
     amount: "1000000000",      // 100 * 10^7
     poolId:
@@ -88,6 +94,12 @@ export const POOL_TIERS: PoolTier[] = [
       process.env.NEXT_PUBLIC_XLM_POOL_ID ||
       process.env.NEXT_PUBLIC_POOL_CONTRACT_ID ||
       "",
+    tokenSymbol: "XLM",
+  },
+  {
+    label: "250 XLM",
+    amount: "2500000000",      // 250 * 10^7
+    poolId: process.env.NEXT_PUBLIC_XLM_POOL_250 || "",
     tokenSymbol: "XLM",
   },
   {
@@ -110,9 +122,21 @@ export const POOL_TIERS: PoolTier[] = [
     tokenSymbol: "USDC",
   },
   {
+    label: "50 USDC",
+    amount: "500000000",
+    poolId: process.env.NEXT_PUBLIC_USDC_POOL_50 || "",
+    tokenSymbol: "USDC",
+  },
+  {
     label: "100 USDC",
     amount: "1000000000",
     poolId: process.env.NEXT_PUBLIC_USDC_POOL_100 || process.env.NEXT_PUBLIC_USDC_POOL_ID || "",
+    tokenSymbol: "USDC",
+  },
+  {
+    label: "250 USDC",
+    amount: "2500000000",
+    poolId: process.env.NEXT_PUBLIC_USDC_POOL_250 || "",
     tokenSymbol: "USDC",
   },
   {
@@ -135,9 +159,21 @@ export const POOL_TIERS: PoolTier[] = [
     tokenSymbol: "USDT",
   },
   {
+    label: "50 USDT",
+    amount: "500000000",
+    poolId: process.env.NEXT_PUBLIC_USDT_POOL_50 || "",
+    tokenSymbol: "USDT",
+  },
+  {
     label: "100 USDT",
     amount: "1000000000",
     poolId: process.env.NEXT_PUBLIC_USDT_POOL_100 || "",
+    tokenSymbol: "USDT",
+  },
+  {
+    label: "250 USDT",
+    amount: "2500000000",
+    poolId: process.env.NEXT_PUBLIC_USDT_POOL_250 || "",
     tokenSymbol: "USDT",
   },
   {

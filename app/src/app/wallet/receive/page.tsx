@@ -17,6 +17,9 @@ import {
   Shield,
   Share2,
   Eye,
+  CreditCard,
+  ExternalLink,
+  Building2,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
@@ -218,14 +221,9 @@ function DepositTab() {
     setError("");
 
     try {
-      const { isConnected, requestAccess, getNetwork } = await import("@stellar/freighter-api");
+      const { isConnected, requestAccess } = await import("@stellar/freighter-api");
       const connected = await isConnected();
       if (!connected) throw new Error("Freighter not found. Install the Freighter wallet extension.");
-
-      const network = await getNetwork();
-      if (network && network !== "TESTNET") {
-        throw new Error("Switch Freighter to Testnet");
-      }
 
       const addr = await requestAccess();
       setAddress(addr);
@@ -505,61 +503,136 @@ function DepositTab() {
         </div>
       </div>
 
-      {/* Deposit from exchange */}
-      <div className="rounded-xl border border-border/60 overflow-hidden">
-        <div className="p-5 text-center bg-gradient-to-br from-blue-50/50 to-card">
-          <QrCode className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-          <div className="text-sm font-semibold mb-1">Deposit from exchange or wallet</div>
-          <p className="text-xs text-muted-foreground mb-4">
-            Send {token.symbol} to your Stellar address below
-          </p>
+      {/* ── Fund your wallet ── */}
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-muted-foreground block">Fund your wallet</label>
 
-          {address ? (
-            <>
-              {showQR && (
-                <div className="mb-4 flex justify-center">
-                  <div className="bg-white p-3 rounded-xl inline-block">
-                    <QRCodeSVG value={address} size={160} />
-                  </div>
-                </div>
-              )}
-              <div className="bg-muted/50 rounded-lg px-3 py-2.5 mb-3">
-                <div className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Stellar Address</div>
-                <div className="text-xs font-mono break-all leading-relaxed">{address}</div>
+        {/* Buy crypto (on-ramp) */}
+        <div className="rounded-xl border border-border/60 overflow-hidden">
+          <div className="p-4 bg-gradient-to-br from-blue-50/50 to-card">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                <CreditCard className="h-4.5 w-4.5 text-blue-600" />
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1" onClick={copyAddress}>
-                  {copied ? (
-                    <><Check className="h-3.5 w-3.5 mr-1.5 text-emerald-500" /> Copied</>
-                  ) : (
-                    <><Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Address</>
-                  )}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowQR(!showQR)}>
-                  <QrCode className="h-3.5 w-3.5 mr-1.5" />
-                  {showQR ? "Hide" : "Show"} QR
-                </Button>
+              <div>
+                <div className="text-sm font-semibold">Buy crypto with card or bank</div>
+                <p className="text-xs text-muted-foreground">
+                  No crypto? Buy {token.symbol} directly with fiat
+                </p>
               </div>
-            </>
-          ) : (
-            <Button
-              size="sm"
-              onClick={async () => {
-                const { isConnected, requestAccess } = await import("@stellar/freighter-api");
-                const connected = await isConnected();
-                if (!connected) return;
-                const addr = await requestAccess();
-                setAddress(addr);
-              }}
-            >
-              Connect Wallet to Show Address
-            </Button>
-          )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={address ? rampProvider.getOnRampUrl({
+                  amount: amountRaw ? Number(amountRaw) / 1e7 : Number(BigInt(tier.amount)) / 1e7,
+                  currency: "USD",
+                  walletAddress: address,
+                }) : "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={async (e) => {
+                  if (address) return;
+                  e.preventDefault();
+                  const { isConnected, requestAccess } = await import("@stellar/freighter-api");
+                  const connected = await isConnected();
+                  if (!connected) return;
+                  const addr = await requestAccess();
+                  setAddress(addr);
+                  const url = rampProvider.getOnRampUrl({
+                    amount: amountRaw ? Number(amountRaw) / 1e7 : Number(BigInt(tier.amount)) / 1e7,
+                    currency: "USD",
+                    walletAddress: addr,
+                  });
+                  window.open(url, "_blank");
+                }}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl border border-border/60 text-sm font-medium hover:border-foreground/30 transition-colors bg-background"
+              >
+                <span className="text-blue-600 font-semibold">Coinbase</span>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </a>
+              <a
+                href="https://www.moonpay.com/buy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 py-3 rounded-xl border border-border/60 text-sm font-medium hover:border-foreground/30 transition-colors bg-background"
+              >
+                <span className="text-purple-600 font-semibold">MoonPay</span>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </a>
+            </div>
+          </div>
+          <div className="px-4 py-2.5 bg-muted/20 border-t border-border/40">
+            <p className="text-[11px] text-muted-foreground text-center">
+              Buy with debit card, credit card, Apple Pay, or bank transfer
+            </p>
+          </div>
         </div>
-        <div className="px-4 py-3 bg-muted/20 border-t border-border/40">
-          <p className="text-[11px] text-muted-foreground text-center">
-            Send from Binance, Yellow Card, Luno, or any Stellar wallet
-          </p>
+
+        {/* Send from exchange or wallet */}
+        <div className="rounded-xl border border-border/60 overflow-hidden">
+          <div className="p-4 bg-card">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <Building2 className="h-4.5 w-4.5 text-emerald-600" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold">Send from exchange or wallet</div>
+                <p className="text-xs text-muted-foreground">
+                  Already have {token.symbol}? Send it to your address
+                </p>
+              </div>
+            </div>
+
+            {address ? (
+              <>
+                {showQR && (
+                  <div className="mb-3 flex justify-center">
+                    <div className="bg-white p-3 rounded-xl inline-block">
+                      <QRCodeSVG value={address} size={160} />
+                    </div>
+                  </div>
+                )}
+                <div className="bg-muted/50 rounded-lg px-3 py-2.5 mb-3">
+                  <div className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Your Stellar Address</div>
+                  <div className="text-xs font-mono break-all leading-relaxed">{address}</div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={copyAddress}>
+                    {copied ? (
+                      <><Check className="h-3.5 w-3.5 mr-1.5 text-emerald-500" /> Copied</>
+                    ) : (
+                      <><Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Address</>
+                    )}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowQR(!showQR)}>
+                    <QrCode className="h-3.5 w-3.5 mr-1.5" />
+                    {showQR ? "Hide" : "Show"} QR
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                className="w-full"
+                variant="outline"
+                onClick={async () => {
+                  const { isConnected, requestAccess } = await import("@stellar/freighter-api");
+                  const connected = await isConnected();
+                  if (!connected) return;
+                  const addr = await requestAccess();
+                  setAddress(addr);
+                }}
+              >
+                <Wallet className="h-3.5 w-3.5 mr-1.5" />
+                Connect Wallet to Show Address
+              </Button>
+            )}
+          </div>
+          <div className="px-4 py-2.5 bg-muted/20 border-t border-border/40">
+            <p className="text-[11px] text-muted-foreground text-center">
+              Send from Binance, Coinbase, Yellow Card, Luno, or any Stellar wallet
+            </p>
+          </div>
         </div>
       </div>
 
@@ -571,29 +644,6 @@ function DepositTab() {
         </div>
         <p className="text-xs text-muted-foreground mb-1">Deposit into the Veil privacy pool</p>
         <p className="text-[10px] text-muted-foreground/60">Note is automatically saved to your wallet</p>
-      </div>
-
-      {/* Friendbot */}
-      <div className="rounded-xl border border-border/60 p-4 flex items-center gap-3">
-        <Droplets className="h-5 w-5 text-blue-500 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium">Need testnet funds?</div>
-          <div className="text-xs text-muted-foreground">Get free testnet XLM via Stellar Friendbot</div>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={fundingStatus === "funding" || fundingStatus === "funded"}
-          onClick={fundTestnet}
-        >
-          {fundingStatus === "funding" ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : fundingStatus === "funded" ? (
-            <Check className="h-3.5 w-3.5 text-emerald-500" />
-          ) : (
-            "Fund"
-          )}
-        </Button>
       </div>
 
       <Button className="w-full h-12 text-base" onClick={handleDeposit} disabled={!canDeposit}>
