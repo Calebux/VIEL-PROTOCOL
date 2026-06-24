@@ -118,8 +118,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="hidden lg:block text-sm font-medium text-muted-foreground">
             Shielded Wallet
           </div>
-          <div className="text-xs text-muted-foreground font-mono bg-muted px-2.5 py-1 rounded-md">
-            Testnet
+          <div className="text-xs font-mono bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md">
+            Mainnet
           </div>
         </header>
 

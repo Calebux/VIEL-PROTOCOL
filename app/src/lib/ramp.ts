@@ -1,7 +1,7 @@
 /* ── Ramp Adapter ─────────────────────────────────────────────
    Clean interface for fiat on-ramp / off-ramp providers.
 
-   On-ramp:  External (Binance, Yellow Card, etc) → user deposits to Stellar
+   On-ramp:  External (Coinbase, Moonpay, etc) → user deposits to Stellar
    Off-ramp: Real settler API → converts USDC/XLM to NGN and delivers
    ──────────────────────────────────────────────────────────── */
 
@@ -22,6 +22,14 @@ export interface RampQuote {
   rate: number;
   fee: number;
   expiresAt: number;
+}
+
+export interface RampStatusResult {
+  status: "pending" | "processing" | "completed" | "failed";
+  txId: string;
+  message?: string;
+  settledAmount?: number;
+  settledCurrency?: string;
 }
 
 export interface RampProvider {
@@ -48,6 +56,16 @@ export interface RampProvider {
     fromCurrency: string;
     toCurrency: string;
   }): Promise<RampQuote>;
+
+  /** Generate an on-ramp deep link for the user to buy USDC */
+  getOnRampUrl(params: {
+    amount: number;
+    currency: string;
+    walletAddress: string;
+  }): string;
+
+  /** Poll settler API for settlement progress */
+  getStatus(txId: string): Promise<RampStatusResult>;
 }
 
 /* ── Real Off-Ramp Provider ──────────────────────────────────
@@ -183,6 +201,57 @@ export class SettlerRampProvider implements RampProvider {
       rate: 1,
       fee,
       expiresAt: Date.now() + 60_000,
+    };
+  }
+
+  getOnRampUrl(params: {
+    amount: number;
+    currency: string;
+    walletAddress: string;
+  }): string {
+    // Coinbase Pay deep link with wallet pre-fill
+    const cbUrl = new URL("https://pay.coinbase.com/buy/select-asset");
+    cbUrl.searchParams.set("appId", "veil-protocol");
+    cbUrl.searchParams.set("destinationWallets", JSON.stringify([
+      { address: params.walletAddress, blockchains: ["stellar"] },
+    ]));
+    cbUrl.searchParams.set("defaultAsset", "USDC");
+    cbUrl.searchParams.set("presetFiatAmount", String(params.amount));
+    cbUrl.searchParams.set("fiatCurrency", params.currency);
+    return cbUrl.toString();
+  }
+
+  async getStatus(txId: string): Promise<RampStatusResult> {
+    if (!OFFRAMP_API_URL) {
+      // Simulated status for dev mode
+      return {
+        status: "completed",
+        txId,
+        message: "Simulated settlement complete",
+      };
+    }
+
+    const res = await fetch(`${OFFRAMP_API_URL}/status/${txId}`, {
+      headers: {
+        ...(OFFRAMP_API_KEY ? { Authorization: `Bearer ${OFFRAMP_API_KEY}` } : {}),
+      },
+    });
+
+    if (!res.ok) {
+      return {
+        status: "failed",
+        txId,
+        message: "Failed to fetch status",
+      };
+    }
+
+    const data = await res.json();
+    return {
+      status: data.status || "pending",
+      txId,
+      message: data.message,
+      settledAmount: data.settledAmount,
+      settledCurrency: data.settledCurrency,
     };
   }
 
