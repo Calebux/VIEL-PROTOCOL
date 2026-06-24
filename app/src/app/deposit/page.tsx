@@ -334,7 +334,8 @@ export default function DepositPage() {
               </div>
             </div>
 
-            {/* Get Test XLM */}
+            {/* Get Test XLM — only show on testnet */}
+            {process.env.NEXT_PUBLIC_STELLAR_NETWORK === "testnet" && (
             <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -371,6 +372,7 @@ export default function DepositPage() {
                 <p className="text-xs text-emerald-600 mt-2">10,000 testnet XLM funded to your wallet!</p>
               )}
             </div>
+            )}
 
             <Button onClick={handleDeposit} size="lg" className="w-full gap-2">
               Connect Wallet & Deposit

@@ -267,7 +267,7 @@ export default function Home() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border/60 bg-muted/50 text-sm text-muted-foreground">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Live on Stellar Testnet</span>
+              <span>Live on Stellar Mainnet</span>
             </div>
           </motion.div>
 
@@ -345,15 +345,15 @@ export default function Home() {
                   <Activity className="w-4 h-4 text-emerald-500" />
                   <div className="text-3xl font-bold tracking-tight">{stats.depositCount}</div>
                 </div>
-                <div className="text-sm text-muted-foreground">Deposits on testnet</div>
+                <div className="text-sm text-muted-foreground">Total deposits</div>
               </div>
               <div className="rounded-xl border border-border/50 p-5 text-center">
                 <div className="text-3xl font-bold tracking-tight mb-1">{stats.depositCount}</div>
                 <div className="text-sm text-muted-foreground">Anonymity set size</div>
               </div>
               <div className="rounded-xl border border-border/50 p-5 text-center">
-                <div className="text-3xl font-bold tracking-tight mb-1">{stats.denominationXLM || 100} XLM</div>
-                <div className="text-sm text-muted-foreground">Fixed denomination</div>
+                <div className="text-3xl font-bold tracking-tight mb-1">8</div>
+                <div className="text-sm text-muted-foreground">Privacy pools</div>
               </div>
               <div className="rounded-xl border border-border/50 p-5 text-center">
                 <div className="text-3xl font-bold tracking-tight mb-1">Depth 20</div>
@@ -725,7 +725,7 @@ export default function Home() {
               <div className="text-center mb-12">
                 <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">Get Started</h2>
                 <p className="text-muted-foreground">
-                  Try Veil on Stellar testnet right now — no real funds needed.
+                  Start using Veil on Stellar mainnet in four simple steps.
                 </p>
               </div>
             </FadeIn>
@@ -736,13 +736,13 @@ export default function Home() {
                   {
                     num: "1",
                     title: "Create your shielded wallet",
-                    desc: "Set a PIN and connect your Freighter wallet (Stellar testnet). Fund your account with the Friendbot if needed.",
+                    desc: "Set a PIN and connect your Freighter wallet. Make sure Freighter is set to Stellar mainnet.",
                     href: "/wallet",
                   },
                   {
                     num: "2",
                     title: "Receive tokens",
-                    desc: "One tap to receive 100 XLM into your shielded wallet. The secret note is auto-saved — no manual copying needed.",
+                    desc: "Deposit XLM or USDC into the shielded pool. Choose your tier and the secret note is auto-saved — no manual copying needed.",
                     href: "/wallet/receive",
                   },
                   {
