@@ -8,6 +8,11 @@ export interface RelayRequest {
   fee: string;
 }
 
+export interface SwapRelayRequest extends RelayRequest {
+  tokenOut: string;
+  minAmountOut: string;
+}
+
 export interface RelayResponse {
   success: boolean;
   txHash?: string;
@@ -34,6 +39,24 @@ export class RelayerClient {
    */
   async submitWithdrawal(request: RelayRequest): Promise<RelayResponse> {
     const response = await fetch(`${this.baseUrl}/relay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      return { success: false, error };
+    }
+
+    return (await response.json()) as RelayResponse;
+  }
+
+  /**
+   * Submit a swap withdrawal request — withdraw and swap to a different token.
+   */
+  async submitSwapWithdrawal(request: SwapRelayRequest): Promise<RelayResponse> {
+    const response = await fetch(`${this.baseUrl}/relay-swap`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),

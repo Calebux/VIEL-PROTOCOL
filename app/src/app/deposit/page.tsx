@@ -17,13 +17,18 @@ import {
   Coins,
 } from "lucide-react";
 import Link from "next/link";
-import { getActiveTokens, type SupportedToken } from "@/lib/tokens";
+import { getActiveTokens, getPoolTiers, type SupportedToken, type PoolTier } from "@/lib/tokens";
+import { executeDeposit } from "@/lib/deposit";
 
 type DepositState = "idle" | "connecting" | "depositing" | "success" | "error";
+
+const FRIENDBOT_URL = "https://friendbot.stellar.org";
 
 export default function DepositPage() {
   const tokens = getActiveTokens();
   const [selectedToken, setSelectedToken] = useState<SupportedToken>(tokens[0]);
+  const tiers = getPoolTiers(selectedToken.symbol);
+  const [selectedTier, setSelectedTier] = useState<PoolTier>(tiers[0]);
   const [state, setState] = useState<DepositState>("idle");
   const [noteString, setNoteString] = useState("");
   const [viewingKey, setViewingKey] = useState("");
@@ -32,50 +37,87 @@ export default function DepositPage() {
   const [copied, setCopied] = useState<"note" | "vk" | null>(null);
   const [timelockHours, setTimelockHours] = useState(24);
   const [enableViewingKey, setEnableViewingKey] = useState(true);
+  const [fundingStatus, setFundingStatus] = useState<"idle" | "funding" | "funded" | "error">("idle");
+  const [fundingError, setFundingError] = useState("");
+
+  /** Connect Freighter, check it's installed, ensure testnet, return address. */
+  async function connectFreighter(): Promise<string> {
+    const { isConnected, requestAccess, getNetwork } = await import(
+      "@stellar/freighter-api"
+    );
+
+    const connected = await isConnected();
+    if (!connected) {
+      throw new Error(
+        "Freighter extension not detected. Please install Freighter from freighter.app and reload this page."
+      );
+    }
+
+    // Check network — warn if not on correct network
+    const network = await getNetwork();
+    const expectedNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK === "testnet" ? "TESTNET" : "PUBLIC";
+    if (network && network !== expectedNetwork) {
+      throw new Error(
+        `Freighter is on "${network}". Please switch to ${expectedNetwork} in Freighter settings and try again.`
+      );
+    }
+
+    const address = await requestAccess();
+    if (!address) throw new Error("Wallet connection rejected — no address returned");
+
+    return address;
+  }
+
+  async function handleGetTestXLM() {
+    try {
+      setFundingStatus("funding");
+      const address = await connectFreighter();
+
+      const res = await fetch(`${FRIENDBOT_URL}?addr=${address}`);
+      if (!res.ok) {
+        const text = await res.text();
+        if (text.includes("createAccountAlreadyExist")) {
+          // Account already exists — already funded
+          setFundingStatus("funded");
+          return;
+        }
+        throw new Error("Friendbot request failed — try again in a moment");
+      }
+      setFundingStatus("funded");
+    } catch (err) {
+      setFundingError(err instanceof Error ? err.message : "Failed to fund");
+      setFundingStatus("error");
+    }
+  }
 
   async function handleDeposit() {
     try {
       setState("connecting");
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const freighter: any = await import("@stellar/freighter-api");
-      const accessResult = await freighter.requestAccess();
-      const address =
-        typeof accessResult === "string"
-          ? accessResult
-          : accessResult?.address;
-      if (!address) throw new Error("Freighter wallet not connected");
+      const address = await connectFreighter();
 
       setState("depositing");
 
-      const response = await fetch("/api/relay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "deposit",
-          denomination: selectedToken.denomination,
-          token: selectedToken.symbol,
-          poolId: selectedToken.poolId,
-          sender: address,
-          enableViewingKey,
-          timelockSeconds: timelockHours * 3600,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Deposit failed");
-
-      const result = await response.json();
-      setNoteString(
-        result.noteString ||
-          `veil-demo-${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-1000000000-0`
+      // Real on-chain deposit via Soroban
+      const result = await executeDeposit(
+        address,
+        BigInt(selectedTier.amount),
+        selectedTier.poolId
       );
-      setViewingKey(
-        result.viewingKey ||
-          (enableViewingKey
-            ? `vk-${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 18)}`
-            : "")
-      );
-      setTxHash(result.txHash || "demo_tx_" + Date.now().toString(16));
+
+      setNoteString(result.noteString);
+      setTxHash(result.txHash);
+
+      // Generate viewing key if enabled (client-side only — not on-chain)
+      if (enableViewingKey) {
+        const vkBuf = new Uint8Array(16);
+        crypto.getRandomValues(vkBuf);
+        const vkHex = Array.from(vkBuf)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        setViewingKey(`vk-${vkHex}`);
+      }
+
       setState("success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -143,7 +185,7 @@ export default function DepositPage() {
             Deposit into the shielded pool
           </h1>
           <p className="text-muted-foreground leading-relaxed">
-            Deposit 100 XLM into the Veil pool. You&apos;ll receive a secret
+            Deposit into the Veil shielded pool. You&apos;ll receive a secret
             note — the only way to withdraw these funds. Optionally generate a
             viewing key for compliance auditing.
           </p>
@@ -182,15 +224,27 @@ export default function DepositPage() {
               </div>
             )}
 
-            {/* Denomination (fixed per token) */}
+            {/* Denomination selector */}
             <div className="rounded-xl border border-border/50 p-5">
               <div className="text-xs text-muted-foreground mb-2">
                 Deposit Amount
               </div>
-              <div className="text-3xl font-bold tracking-tight">
-                {selectedToken.denominationDisplay}
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {tiers.map((t) => (
+                  <button
+                    key={t.amount}
+                    onClick={() => setSelectedTier(t)}
+                    className={`py-3 rounded-xl border text-sm font-semibold transition-colors ${
+                      selectedTier.amount === t.amount
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border/50 hover:border-border text-muted-foreground"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
-              <div className="text-sm text-muted-foreground mt-1">
+              <div className="text-sm text-muted-foreground">
                 Fixed denomination for maximum anonymity set size
               </div>
             </div>
@@ -278,6 +332,44 @@ export default function DepositPage() {
                   </ul>
                 </div>
               </div>
+            </div>
+
+            {/* Get Test XLM */}
+            <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <Coins className="w-4.5 h-4.5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">Need test tokens?</p>
+                    <p className="text-xs text-muted-foreground">
+                      Get free testnet XLM from Stellar Friendbot
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGetTestXLM}
+                  disabled={fundingStatus === "funding" || fundingStatus === "funded"}
+                  className="gap-2 shrink-0"
+                >
+                  {fundingStatus === "funding" ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Funding...</>
+                  ) : fundingStatus === "funded" ? (
+                    <><Check className="w-3.5 h-3.5" /> Funded</>
+                  ) : (
+                    <><Coins className="w-3.5 h-3.5" /> Get Test XLM</>
+                  )}
+                </Button>
+              </div>
+              {fundingStatus === "error" && (
+                <p className="text-xs text-red-600 mt-2">{fundingError}</p>
+              )}
+              {fundingStatus === "funded" && (
+                <p className="text-xs text-emerald-600 mt-2">10,000 testnet XLM funded to your wallet!</p>
+              )}
             </div>
 
             <Button onClick={handleDeposit} size="lg" className="w-full gap-2">

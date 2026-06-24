@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
+  ArrowLeftRight,
   Sparkles,
   TrendingUp,
   ArrowUpRight,
@@ -12,6 +13,7 @@ import {
   Search,
   Bell,
   Shield,
+  ShieldCheck,
   Eye,
   Zap,
   Lock,
@@ -19,6 +21,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Activity,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -39,12 +42,13 @@ function Navbar() {
             <NavLink href="#how-it-works">How It Works</NavLink>
             <NavLink href="#features">Features</NavLink>
             <NavLink href="#compliance">Compliance</NavLink>
+            <NavLink href="/wallet">Wallet</NavLink>
             <NavLink href="/explorer">Proof Explorer</NavLink>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Button size="sm" className="rounded-full px-5" asChild>
-            <Link href="/deposit">Launch App</Link>
+            <Link href="/wallet">Launch App</Link>
           </Button>
         </div>
       </div>
@@ -89,11 +93,12 @@ function DashboardPreview() {
 
       <div className="flex">
         <div className="hidden md:flex flex-col w-48 border-r border-border/40 p-3 gap-1 bg-muted/10">
-          <SidebarItem active>Dashboard</SidebarItem>
-          <SidebarItem>Deposits</SidebarItem>
-          <SidebarItem>Withdrawals</SidebarItem>
+          <SidebarItem active>Wallet</SidebarItem>
+          <SidebarItem>Send</SidebarItem>
+          <SidebarItem>Receive</SidebarItem>
+          <SidebarItem>Remit</SidebarItem>
           <SidebarItem>Compliance</SidebarItem>
-          <SidebarItem>Settings</SidebarItem>
+          <SidebarItem>Explorer</SidebarItem>
         </div>
 
         <div className="flex-1 p-4 space-y-4 min-h-[320px]">
@@ -141,9 +146,9 @@ function DashboardPreview() {
             </div>
             <div className="divide-y divide-border/30">
               <TxRow type="deposit" amount="+100.00 XLM" time="2m ago" status="confirmed" />
-              <TxRow type="withdraw" amount="-50.00 XLM" time="1h ago" status="confirmed" />
+              <TxRow type="withdraw" amount="-50.00 XLM" time="45m ago" status="confirmed" />
+              <TxRow type="swap" amount="100 USD → 1,709 MXN" time="1h ago" status="confirmed" />
               <TxRow type="deposit" amount="+100.00 XLM" time="3h ago" status="confirmed" />
-              <TxRow type="withdraw" amount="-100.00 XLM" time="6h ago" status="pending" />
             </div>
           </div>
         </div>
@@ -160,20 +165,26 @@ function SidebarItem({ children, active }: { children: React.ReactNode; active?:
   );
 }
 
-function TxRow({ type, amount, time, status }: { type: "deposit" | "withdraw"; amount: string; time: string; status: string }) {
+function TxRow({ type, amount, time, status }: { type: "deposit" | "withdraw" | "swap"; amount: string; time: string; status: string }) {
+  const styles = {
+    deposit: { bg: "bg-emerald-50 text-emerald-600", icon: <ArrowDownLeft className="w-3.5 h-3.5" />, amountColor: "text-emerald-600" },
+    withdraw: { bg: "bg-orange-50 text-orange-600", icon: <ArrowUpRight className="w-3.5 h-3.5" />, amountColor: "text-foreground" },
+    swap: { bg: "bg-indigo-50 text-indigo-600", icon: <ArrowLeftRight className="w-3.5 h-3.5" />, amountColor: "text-indigo-600" },
+  };
+  const s = styles[type];
   return (
     <div className="flex items-center justify-between px-4 py-2.5">
       <div className="flex items-center gap-3">
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center ${type === "deposit" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"}`}>
-          {type === "deposit" ? <ArrowDownLeft className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center ${s.bg}`}>
+          {s.icon}
         </div>
         <div>
-          <div className="text-xs font-medium capitalize">{type}</div>
+          <div className="text-xs font-medium capitalize">{type === "swap" ? "remittance" : type === "deposit" ? "received" : "sent"}</div>
           <div className="text-[10px] text-muted-foreground">{time}</div>
         </div>
       </div>
       <div className="text-right">
-        <div className={`text-xs font-medium ${type === "deposit" ? "text-emerald-600" : "text-foreground"}`}>{amount}</div>
+        <div className={`text-xs font-medium ${s.amountColor}`}>{amount}</div>
         <div className={`text-[10px] capitalize ${status === "confirmed" ? "text-muted-foreground" : "text-yellow-600"}`}>{status}</div>
       </div>
     </div>
@@ -278,22 +289,22 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-center text-base sm:text-lg text-muted-foreground max-w-2xl mb-10 leading-relaxed"
           >
-            Veil is a shielded payment protocol on Stellar that doesn't sacrifice compliance.
-            Send and receive tokens with zero on-chain link between sender and recipient —
-            while timelocked viewing keys let authorized parties audit when needed.
-            Powered by Groth16 zero-knowledge proofs verified directly on Soroban.
+            Veil is a shielded wallet and private remittance protocol on Stellar.
+            Send, receive, and transfer across borders with zero on-chain link between
+            sender and recipient. Your shielded wallet manages everything —
+            powered by Groth16 zero-knowledge proofs verified directly on Soroban.
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="flex items-center gap-3">
             <Button size="lg" className="rounded-full px-7 gap-2" asChild>
-              <Link href="/deposit">
-                Start Deposit
+              <Link href="/wallet">
+                Launch App
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>
             <Button variant="outline" size="lg" className="rounded-full px-7 gap-2" asChild>
-              <Link href="/withdraw">
-                Withdraw Funds
+              <Link href="#how-it-works">
+                Learn More
               </Link>
             </Button>
           </motion.div>
@@ -367,7 +378,7 @@ export default function Home() {
               <div className="text-center mb-16">
                 <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">How It Works</h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
-                  Four steps from deposit to private withdrawal. No on-chain link between sender and recipient at any point.
+                  From receiving funds to sending privately across borders. No on-chain link between sender and recipient at any point.
                 </p>
               </div>
             </FadeIn>
@@ -376,30 +387,30 @@ export default function Home() {
               {[
                 {
                   step: "01",
-                  title: "Deposit tokens",
-                  desc: "Connect your Stellar wallet and deposit a fixed amount (100 XLM) into the Veil pool. A cryptographic commitment (Poseidon hash of a random secret) is added to the on-chain Merkle tree. You receive a secret note — this is your proof of deposit.",
+                  title: "Open your shielded wallet",
+                  desc: "Set up your Veil wallet with a PIN. Connect your Freighter wallet and receive funds — tokens enter the shielded pool with a Poseidon commitment added to the on-chain Merkle tree. Your wallet auto-saves the secret note.",
                   icon: <ArrowDownLeft className="w-5 h-5" />,
                   color: "text-emerald-600 bg-emerald-50",
                 },
                 {
                   step: "02",
-                  title: "Share the secret note",
-                  desc: "The secret note is a compact string containing your nullifier and secret. Share it with your recipient through any private channel — messaging app, email, QR code, or in person. Only the note holder can withdraw.",
+                  title: "Send privately",
+                  desc: "Enter a recipient address and amount. Your wallet auto-selects the right note, generates a Groth16 zero-knowledge proof entirely in the browser, and submits it on-chain — no manual note handling required.",
                   icon: <Lock className="w-5 h-5" />,
                   color: "text-blue-600 bg-blue-50",
                 },
                 {
                   step: "03",
-                  title: "Generate a ZK proof",
-                  desc: "The recipient pastes the note into the withdraw page. Their browser generates a Groth16 zero-knowledge proof entirely client-side — proving they know the secret behind a valid deposit without revealing which one it is.",
-                  icon: <Shield className="w-5 h-5" />,
+                  title: "Send across borders",
+                  desc: "Choose a remittance corridor (USD→MXN, EUR→NGN, and more). Fiat on-ramps, shielded transfers through the Veil pool, and fiat off-ramps — all visualized in a real-time privacy pipeline.",
+                  icon: <Globe className="w-5 h-5" />,
                   color: "text-violet-600 bg-violet-50",
                 },
                 {
                   step: "04",
-                  title: "Withdraw privately",
-                  desc: "The proof is submitted to the Veil pool contract on Soroban, which verifies it using BN254 pairing checks. If valid, tokens are sent to the recipient. The nullifier prevents double-spending. No link to the original depositor exists on-chain.",
-                  icon: <ArrowUpRight className="w-5 h-5" />,
+                  title: "Stay compliant",
+                  desc: "Every transaction runs an automatic Privacy Pools compliance check. Timelocked viewing keys let authorized auditors verify activity after a configurable period — privacy today, accountability when it matters.",
+                  icon: <ShieldCheck className="w-5 h-5" />,
                   color: "text-orange-600 bg-orange-50",
                 },
               ].map((item, i) => (
@@ -419,6 +430,75 @@ export default function Home() {
                 </FadeIn>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* ─── NEW: Private Swaps Highlight ─── */}
+        <section className="px-6 py-12">
+          <div className="max-w-5xl mx-auto">
+            <FadeIn>
+              <div className="relative rounded-2xl border border-indigo-200/60 bg-gradient-to-br from-indigo-50/80 via-white to-violet-50/50 p-8 sm:p-10 overflow-hidden">
+                <div className="absolute top-4 right-4">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-600 text-white text-xs font-semibold">
+                    NEW
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row items-start gap-6">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                    <ArrowLeftRight className="w-7 h-7" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold tracking-tight mb-2">Private DEX Swaps</h3>
+                    <p className="text-muted-foreground leading-relaxed mb-4">
+                      Deposit XLM, withdraw as USDC — or any supported token pair. The on-chain swap router
+                      changes the token type during withdrawal, adding a second layer of unlinkability on top
+                      of the ZK proof. Sender-recipient link broken <strong className="text-foreground">and</strong> token
+                      type changed. Inspired by composable privacy on Starknet.
+                    </p>
+                    <Button size="sm" className="rounded-full px-6 gap-2 bg-indigo-600 hover:bg-indigo-700" asChild>
+                      <Link href="/wallet/send">
+                        Try Private Swap
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </FadeIn>
+          </div>
+        </section>
+
+        {/* ─── NEW: Private Remittance Highlight ─── */}
+        <section className="px-6 py-12">
+          <div className="max-w-5xl mx-auto">
+            <FadeIn>
+              <div className="relative rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/50 p-8 sm:p-10 overflow-hidden">
+                <div className="absolute top-4 right-4">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-semibold">
+                    NEW
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row items-start gap-6">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Globe className="w-7 h-7" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold tracking-tight mb-2">Private Cross-Border Remittance</h3>
+                    <p className="text-muted-foreground leading-relaxed mb-4">
+                      Send money across borders with transfer amounts private throughout the pipeline.
+                      Fiat on-ramp, shielded transfer through the Veil pool, fiat off-ramp — Stellar's
+                      real payment rails, made confidential with zero-knowledge proofs.
+                    </p>
+                    <Button size="sm" className="rounded-full px-6 gap-2 bg-emerald-600 hover:bg-emerald-700" asChild>
+                      <Link href="/remit">
+                        Try Remittance
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </FadeIn>
           </div>
         </section>
 
@@ -460,6 +540,16 @@ export default function Home() {
                   icon: <Lock className="w-5 h-5" />,
                   title: "Encrypted On-chain Memos",
                   desc: "Attach NaCl-encrypted notes to deposits, stored on-chain. Only the intended recipient can decrypt them — useful for payment references or messages.",
+                },
+                {
+                  icon: <ArrowLeftRight className="w-5 h-5" />,
+                  title: "Private DEX Swaps",
+                  desc: "Withdraw as a different token via an on-chain swap router. Deposit XLM, receive USDC — two layers of unlinkability: sender-recipient link AND token type are both broken.",
+                },
+                {
+                  icon: <ShieldCheck className="w-5 h-5" />,
+                  title: "Privacy Pools",
+                  desc: "Prove your funds are clean without revealing your identity. Based on Vitalik's Privacy Pools paper — compliance-ready privacy using subset membership proofs.",
                 },
                 {
                   icon: <Sparkles className="w-5 h-5" />,
@@ -645,27 +735,27 @@ export default function Home() {
                 {[
                   {
                     num: "1",
-                    title: "Go to the Deposit page",
-                    desc: "Connect your Freighter wallet (Stellar testnet). You'll deposit 100 XLM into the shielded pool.",
-                    href: "/deposit",
+                    title: "Create your shielded wallet",
+                    desc: "Set a PIN and connect your Freighter wallet (Stellar testnet). Fund your account with the Friendbot if needed.",
+                    href: "/wallet",
                   },
                   {
                     num: "2",
-                    title: "Save your secret note",
-                    desc: "After depositing, you'll receive a secret note. Copy it or scan the QR code — this is your withdrawal key.",
-                    href: "/deposit",
+                    title: "Receive tokens",
+                    desc: "One tap to receive 100 XLM into your shielded wallet. The secret note is auto-saved — no manual copying needed.",
+                    href: "/wallet/receive",
                   },
                   {
                     num: "3",
-                    title: "Go to the Withdraw page",
-                    desc: "Paste your note, enter a recipient address. The app generates a ZK proof in your browser and submits it on-chain.",
-                    href: "/withdraw",
+                    title: "Send privately",
+                    desc: "Enter a recipient and amount. Your wallet handles note selection, ZK proof generation, and on-chain submission automatically.",
+                    href: "/wallet/send",
                   },
                   {
                     num: "4",
-                    title: "Review with Viewing Keys",
-                    desc: "Use the compliance dashboard to inspect timelocked transaction records. See how privacy and full auditability coexist — the key differentiator of Veil.",
-                    href: "/compliance",
+                    title: "Try cross-border remittance",
+                    desc: "Pick a corridor (USD→MXN, EUR→NGN, and more), enter an amount, and watch the privacy pipeline execute in real time.",
+                    href: "/remit",
                   },
                 ].map((step) => (
                   <Link
@@ -696,13 +786,13 @@ export default function Home() {
                 Privacy that plays by the rules
               </h2>
               <p className="text-muted-foreground mb-8">
-                Deposit into the shielded pool, withdraw with zero-knowledge proofs,
-                and let viewing keys handle compliance — all on Stellar.
+                Your shielded wallet handles everything — receive, send, and remit across
+                borders with zero-knowledge proofs and built-in compliance, all on Stellar.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <Button size="lg" className="rounded-full px-7 gap-2" asChild>
-                  <Link href="/deposit">
-                    Start Deposit
+                  <Link href="/wallet">
+                    Launch App
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </Button>

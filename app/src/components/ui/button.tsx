@@ -24,13 +24,22 @@ const sizeStyles: Record<string, string> = {
 };
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = "", variant = "default", size = "default", ...props }, ref) => {
+  ({ className = "", variant = "default", size = "default", asChild, ...props }, ref) => {
     const base =
       "inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
 
+    const classes = `${base} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+
+    if (asChild && React.isValidElement(props.children)) {
+      return React.cloneElement(props.children as React.ReactElement<Record<string, unknown>>, {
+        className: classes,
+        ref,
+      });
+    }
+
     return (
       <button
-        className={`${base} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+        className={classes}
         ref={ref}
         {...props}
       />

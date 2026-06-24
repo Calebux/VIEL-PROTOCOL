@@ -16,6 +16,7 @@ pub enum DataKey {
     NextIndex,
     Nullifier(U256),
     EncryptedNote(u32),
+    SwapRouter,
 }
 
 /// Groth16 proof data passed to withdraw.

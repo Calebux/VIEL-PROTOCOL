@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
+  ArrowLeftRight,
   Check,
   Loader2,
   AlertTriangle,
@@ -12,7 +13,13 @@ import {
   Clock,
   CheckCircle2,
   Link2,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldQuestion,
 } from "lucide-react";
+import { SUPPORTED_TOKENS, getSwapPairs, POOL_TIERS } from "@/lib/tokens";
+import { executeWithdraw, checkSubsetStatus } from "@/lib/withdraw";
+import type { SubsetStatus } from "@/lib/withdraw";
 import Link from "next/link";
 
 type WithdrawState =
@@ -29,6 +36,19 @@ const PROOF_STEPS = [
   "Computing witness assignment...",
   "Generating Groth16 proof...",
   "Proof generated!",
+  "Checking compliance status...",
+  "Generating subset proof...",
+];
+
+const SWAP_PROOF_STEPS = [
+  "Parsing secret note...",
+  "Building Merkle path (depth 20)...",
+  "Computing witness assignment...",
+  "Generating Groth16 proof...",
+  "Proof generated!",
+  "Checking compliance status...",
+  "Generating subset proof...",
+  "Routing through private swap...",
 ];
 
 export default function WithdrawPage() {
@@ -55,9 +75,61 @@ function WithdrawInner() {
     }
   }, [searchParams]);
   const [useRelayer, setUseRelayer] = useState(true);
+  const [enableSwap, setEnableSwap] = useState(false);
+  const [swapTokenOut, setSwapTokenOut] = useState("");
+  const [swapResult, setSwapResult] = useState<{ tokenOut: string; estimatedOutput: string } | null>(null);
   const [txHash, setTxHash] = useState("");
   const [error, setError] = useState("");
   const [proofStep, setProofStep] = useState(0);
+  const [substepText, setSubstepText] = useState("");
+  const [complianceStatus, setComplianceStatus] = useState<SubsetStatus | null>(null);
+  const [checkingCompliance, setCheckingCompliance] = useState(false);
+
+  // Auto-check compliance status when note is entered
+  useEffect(() => {
+    if (!noteInput.startsWith("veil-")) {
+      setComplianceStatus(null);
+      return;
+    }
+    const parts = noteInput.trim().split("-");
+    if (parts.length !== 5) return;
+
+    let cancelled = false;
+    setCheckingCompliance(true);
+
+    (async () => {
+      try {
+        const circomlibjs = await import("circomlibjs");
+        const poseidon = await circomlibjs.buildPoseidon();
+        const poseidonFn = (inputs: bigint[]) => {
+          const hash = poseidon(inputs);
+          return poseidon.F.toObject(hash);
+        };
+        const nullifier = BigInt("0x" + parts[1]);
+        const secret = BigInt("0x" + parts[2]);
+        const commitment = poseidonFn([nullifier, secret]);
+        const status = await checkSubsetStatus(commitment);
+        if (!cancelled) setComplianceStatus(status);
+      } catch {
+        if (!cancelled) setComplianceStatus(null);
+      } finally {
+        if (!cancelled) setCheckingCompliance(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [noteInput]);
+
+  // Determine input token from note denomination
+  const noteToken = "XLM"; // Defaulting to XLM as note doesn't store token
+  const denom = noteInput.trim().split("-")[3];
+  const tier = POOL_TIERS.find((t) => t.amount === denom && t.tokenSymbol === noteToken);
+  const poolContractId = tier?.poolId;
+
+  const swapPairs = getSwapPairs(noteToken);
+  const availableOutputTokens = SUPPORTED_TOKENS.filter(
+    (t) => t.symbol !== noteToken && swapPairs.some((p) => p.tokenOut === t.symbol)
+  );
 
   async function handleWithdraw() {
     if (!noteInput.trim()) {
@@ -75,43 +147,60 @@ function WithdrawInner() {
 
       let recipient = recipientAddress;
       if (!recipient) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const freighter: any = await import("@stellar/freighter-api");
-        const result = await freighter.requestAccess();
-        recipient = typeof result === "string" ? result : result?.address;
-        if (!recipient) throw new Error("No wallet connected");
-      }
-
-      for (let i = 0; i < PROOF_STEPS.length; i++) {
-        setProofStep(i);
-        await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
-      }
-
-      setState("submitting");
-
-      const response = await fetch("/api/relay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "withdraw",
-          note: noteInput,
-          recipient,
-          useRelayer,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Withdrawal submission failed");
-
-      const result = await response.json();
-
-      if (result.estimatedDelay) {
-        setState("queued");
-        await new Promise((r) =>
-          setTimeout(r, Math.min(result.estimatedDelay * 1000, 10000))
+        const { isConnected, requestAccess, getNetwork } = await import(
+          "@stellar/freighter-api"
         );
+
+        const connected = await isConnected();
+        if (!connected) {
+          throw new Error(
+            "Freighter extension not detected. Please install Freighter from freighter.app and reload this page."
+          );
+        }
+
+        const network = await getNetwork();
+        const expectedNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK === "testnet" ? "TESTNET" : "PUBLIC";
+        if (network && network !== expectedNetwork) {
+          throw new Error(
+            `Freighter is on "${network}". Please switch to ${expectedNetwork} in Freighter settings and try again.`
+          );
+        }
+
+        recipient = await requestAccess();
+        if (!recipient) throw new Error("Wallet connection rejected — no address returned");
       }
 
-      setTxHash(result.txHash || "demo_tx_" + Date.now().toString(16));
+      // Real on-chain withdrawal with ZK proof
+      const stepMap: Record<string, number> = {
+        "Parsing secret note...": 0,
+        "Syncing on-chain deposits...": 0,
+        "Building Merkle tree (depth 20)...": 1,
+        "Computing witness assignment...": 2,
+        "Generating Groth16 proof...": 3,
+        "Proof generated!": 4,
+        "Checking compliance status...": 5,
+        "Generating subset proof...": 6,
+        "Submitting to network...": 6,
+        "Simulating transaction...": 6,
+        "Waiting for wallet signature...": 6,
+        "Broadcasting transaction...": 6,
+        "Waiting for confirmation...": 6,
+      };
+
+      const result = await executeWithdraw(
+        noteInput.trim(),
+        recipient,
+        (step: string) => {
+          const idx = stepMap[step];
+          if (idx !== undefined) setProofStep(idx);
+          if (step === "Submitting to network...") setState("submitting");
+          // Update substep text for all steps after subset proof
+          if (idx !== undefined && idx >= 6) setSubstepText(step);
+        },
+        poolContractId
+      );
+
+      setTxHash(result.txHash);
       setState("success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -178,6 +267,54 @@ function WithdrawInner() {
               />
             </div>
 
+            {/* Compliance status panel */}
+            {noteInput.startsWith("veil-") && noteInput.trim().split("-").length === 5 && (
+              <div className="rounded-xl border border-border/50 p-4">
+                {checkingCompliance ? (
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Checking compliance status...</span>
+                  </div>
+                ) : complianceStatus?.status === "compliant" ? (
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-700">Compliant</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Your deposit has been screened and approved by the ASP. A subset proof will be generated automatically during withdrawal.
+                      </p>
+                    </div>
+                  </div>
+                ) : complianceStatus?.status === "pending_review" ? (
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                      <ShieldAlert className="w-4 h-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-amber-700">Pending Review</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        This deposit hasn&apos;t been screened yet. Withdrawal will proceed without a compliance proof. Some relayers may require it.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <ShieldQuestion className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-muted-foreground">Not Screened</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        No ASP screening data available. Withdrawal will proceed without a subset proof.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Recipient */}
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -194,6 +331,77 @@ function WithdrawInner() {
                 className="w-full rounded-lg border border-border bg-background px-4 py-3 font-mono text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             </div>
+
+            {/* Swap toggle */}
+            <div className="rounded-xl border border-border/50 p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <ArrowLeftRight className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Receive as different token</p>
+                  <p className="text-xs text-muted-foreground">
+                    Swap during withdrawal for extra unlinkability
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEnableSwap(!enableSwap);
+                  if (!enableSwap && availableOutputTokens.length > 0) {
+                    setSwapTokenOut(availableOutputTokens[0].symbol);
+                  }
+                }}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  enableSwap ? "bg-indigo-600" : "bg-muted"
+                }`}
+              >
+                <div
+                  className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${
+                    enableSwap ? "left-[22px]" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Token selector when swap enabled */}
+            {enableSwap && (
+              <div className="space-y-3">
+                <label className="block text-sm font-medium">
+                  Receive as
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {availableOutputTokens.map((token) => {
+                    const pair = swapPairs.find((p) => p.tokenOut === token.symbol);
+                    const selected = swapTokenOut === token.symbol;
+                    return (
+                      <button
+                        key={token.symbol}
+                        onClick={() => setSwapTokenOut(token.symbol)}
+                        className={`rounded-xl border p-4 text-left transition-all ${
+                          selected
+                            ? "border-indigo-300 bg-indigo-50 ring-1 ring-indigo-200"
+                            : "border-border/50 hover:border-border"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className={`w-6 h-6 rounded-full ${token.bgColor} ${token.color} flex items-center justify-center text-xs font-bold`}>
+                            {token.symbol[0]}
+                          </div>
+                          <span className="font-semibold text-sm">{token.symbol}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{token.name}</p>
+                        {pair && (
+                          <p className="text-xs text-indigo-600 mt-1 font-medium">
+                            ~{(100 * pair.rate * 0.95).toFixed(2)} {token.symbol} for 100 {noteToken}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Relayer toggle */}
             <div className="rounded-xl border border-border/50 p-5 flex items-center justify-between">
@@ -267,9 +475,14 @@ function WithdrawInner() {
                   {state === "proving"
                     ? "Generating ZK proof"
                     : state === "submitting"
-                      ? "Submitting to relayer"
+                      ? `Submitting to network`
                       : "Processing in queue"}
                 </p>
+                {state === "submitting" && substepText && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {substepText}
+                  </p>
+                )}
                 {state === "queued" && (
                   <p className="text-sm text-muted-foreground mt-1">
                     Random delay for timing decorrelation
@@ -279,7 +492,7 @@ function WithdrawInner() {
 
               {state === "proving" && (
                 <div className="space-y-3">
-                  {PROOF_STEPS.map((step, i) => (
+                  {(enableSwap && swapTokenOut ? SWAP_PROOF_STEPS : PROOF_STEPS).map((step, i) => (
                     <div
                       key={i}
                       className={`flex items-center gap-3 text-sm transition-all duration-300 ${
@@ -327,16 +540,40 @@ function WithdrawInner() {
               </div>
             </div>
 
+            {/* Swap result banner */}
+            {swapResult && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                    <ArrowLeftRight className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-indigo-800">
+                      Deposited as {noteToken}, received as {swapResult.tokenOut}
+                    </p>
+                    <p className="text-xs text-indigo-600 mt-0.5">
+                      ~{swapResult.estimatedOutput} {swapResult.tokenOut} received — token type changed for additional privacy
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* What happened */}
             <div className="rounded-xl border border-border/50 p-6">
               <h3 className="text-base font-semibold mb-4">What happened</h3>
               <div className="space-y-3">
                 {[
                   "Groth16 ZK proof generated in your browser",
+                  ...(complianceStatus?.approved
+                    ? ["Subset proof generated — compliance verified without breaking privacy"]
+                    : []),
                   "Proof submitted to relayer (no IP correlation)",
                   "Soroban contract verified proof via BN254 pairing check",
                   "Nullifier marked spent — double-spend impossible",
-                  "Funds transferred with zero on-chain link to depositor",
+                  ...(swapResult
+                    ? ["Funds routed through swap router — token type changed for two layers of unlinkability"]
+                    : ["Funds transferred with zero on-chain link to depositor"]),
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-3 text-sm">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
@@ -372,6 +609,10 @@ function WithdrawInner() {
                     setTxHash("");
                     setError("");
                     setProofStep(0);
+                    setEnableSwap(false);
+                    setSwapTokenOut("");
+                    setSwapResult(null);
+                    setComplianceStatus(null);
                   }}
                   className="flex items-center justify-between w-full p-3 rounded-lg border border-border/40 hover:bg-muted/30 transition-colors group text-left"
                 >

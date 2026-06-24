@@ -2,9 +2,17 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { DelayQueue, type QueueItem } from "./queue";
-import { submitWithdrawal, type WithdrawParams } from "./submit";
+import {
+  submitWithdrawal,
+  submitSwapWithdrawal,
+  type WithdrawParams,
+  type SwapWithdrawParams,
+} from "./submit";
 
-dotenv.config();
+import path from "path";
+import fs from "fs";
+
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const app = express();
 app.use(cors());
@@ -29,17 +37,22 @@ const results = new Map<string, { txHash?: string; error?: string; status: strin
 // Delay queue with random anti-correlation delay
 const queue = new DelayQueue(
   async (item: QueueItem) => {
-    const params = item.data as WithdrawParams;
-    console.log(`[relayer] Processing withdrawal: ${item.id}`);
+    const isSwap = !!(item.data as Record<string, unknown>).tokenOut;
+    const nullifier = (item.data as WithdrawParams).nullifierHash;
+    console.log(`[relayer] Processing ${isSwap ? "swap " : ""}withdrawal: ${item.id}`);
 
     try {
-      const txHash = await submitWithdrawal(params, config);
-      results.set(params.nullifierHash, { txHash, status: "confirmed" });
+      const itemData = item.data as Record<string, unknown>;
+      const itemConfig = (itemData._config as typeof config) || config;
+      const txHash = isSwap
+        ? await submitSwapWithdrawal(item.data as SwapWithdrawParams, itemConfig)
+        : await submitWithdrawal(item.data as WithdrawParams, itemConfig);
+      results.set(nullifier, { txHash, status: "confirmed" });
       console.log(`[relayer] Withdrawal confirmed: ${txHash}`);
       return txHash;
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
-      results.set(params.nullifierHash, { error, status: "failed" });
+      results.set(nullifier, { error, status: "failed" });
       console.error(`[relayer] Withdrawal failed: ${error}`);
       throw err;
     }
@@ -53,8 +66,8 @@ const queue = new DelayQueue(
  * POST /relay — Submit a withdrawal request
  */
 app.post("/relay", (req, res) => {
-  const { proofA, proofB, proofC, root, nullifierHash, recipient, fee } =
-    req.body as WithdrawParams;
+  const { proofA, proofB, proofC, root, nullifierHash, recipient, fee, poolContractId } =
+    req.body as WithdrawParams & { poolContractId?: string };
 
   // Validate required fields
   if (!proofA || !proofB || !proofC || !root || !nullifierHash || !recipient) {
@@ -71,7 +84,10 @@ app.post("/relay", (req, res) => {
     }
   }
 
-  // Add to delay queue
+  // Add to delay queue — override pool contract if provided
+  const effectiveConfig = poolContractId
+    ? { ...config, poolContractId }
+    : config;
   const item = queue.add(nullifierHash, {
     proofA,
     proofB,
@@ -80,6 +96,7 @@ app.post("/relay", (req, res) => {
     nullifierHash,
     recipient,
     fee: fee || "0",
+    _config: effectiveConfig,
   });
 
   results.set(nullifierHash, { status: "pending" });
@@ -91,6 +108,54 @@ app.post("/relay", (req, res) => {
     queuePosition: 1,
     estimatedDelay,
     message: `Withdrawal queued. Estimated processing in ${estimatedDelay}s.`,
+  });
+});
+
+/**
+ * POST /relay-swap — Submit a swap withdrawal request (withdraw + token swap)
+ */
+app.post("/relay-swap", (req, res) => {
+  const { proofA, proofB, proofC, root, nullifierHash, recipient, fee, tokenOut, minAmountOut, poolContractId: swapPoolId } =
+    req.body as SwapWithdrawParams & { poolContractId?: string };
+
+  if (!proofA || !proofB || !proofC || !root || !nullifierHash || !recipient || !tokenOut) {
+    res.status(400).json({ success: false, error: "Missing required fields" });
+    return;
+  }
+
+  if (results.has(nullifierHash)) {
+    const existing = results.get(nullifierHash)!;
+    if (existing.status === "confirmed") {
+      res.json({ success: true, txHash: existing.txHash });
+      return;
+    }
+  }
+
+  const effectiveSwapConfig = swapPoolId
+    ? { ...config, poolContractId: swapPoolId }
+    : config;
+  const item = queue.add(nullifierHash, {
+    proofA,
+    proofB,
+    proofC,
+    root,
+    nullifierHash,
+    recipient,
+    fee: fee || "0",
+    tokenOut,
+    minAmountOut: minAmountOut || "0",
+    _config: effectiveSwapConfig,
+  });
+
+  results.set(nullifierHash, { status: "pending" });
+
+  const estimatedDelay = Math.round((item.executeAt - Date.now()) / 1000);
+
+  res.json({
+    success: true,
+    queuePosition: 1,
+    estimatedDelay,
+    message: `Swap withdrawal queued. Estimated processing in ${estimatedDelay}s.`,
   });
 });
 
@@ -125,7 +190,22 @@ app.get("/info", (_req, res) => {
  * GET /tree — Return known deposit commitments for SDK tree sync.
  * Tracks deposits added via relay or reported externally.
  */
-const depositLeaves: string[] = [];
+const LEAVES_FILE = path.join(process.cwd(), ".deposit-leaves.json");
+
+function loadLeaves(): string[] {
+  try {
+    if (fs.existsSync(LEAVES_FILE)) {
+      return JSON.parse(fs.readFileSync(LEAVES_FILE, "utf-8"));
+    }
+  } catch {}
+  return [];
+}
+
+function saveLeaves(leaves: string[]) {
+  fs.writeFileSync(LEAVES_FILE, JSON.stringify(leaves));
+}
+
+const depositLeaves: string[] = loadLeaves();
 
 app.get("/tree", (_req, res) => {
   res.json({ leaves: depositLeaves, count: depositLeaves.length });
@@ -138,6 +218,7 @@ app.post("/tree/add", (req, res) => {
     return;
   }
   depositLeaves.push(commitment);
+  saveLeaves(depositLeaves);
   res.json({ success: true, index: depositLeaves.length - 1 });
 });
 

@@ -143,7 +143,8 @@ export class VeilClient {
   async withdraw(
     note: VeilNote,
     recipient: string,
-    useRelayer = false
+    useRelayer = false,
+    signer?: StellarSdk.Keypair
   ): Promise<WithdrawResult> {
     this.ensureInit();
 
@@ -186,9 +187,63 @@ export class VeilClient {
     }
 
     // Direct withdrawal (less private — links sender's IP to withdrawal)
-    throw new Error(
-      "Direct withdrawal not yet implemented — use relayer for privacy"
-    );
+    if (!signer) {
+      throw new Error("Direct withdrawal requires a signer Keypair");
+    }
+
+    const account = await this.server.getAccount(signer.publicKey());
+    const contract = new StellarSdk.Contract(this.config.poolContractId);
+
+    const proofBytes = Buffer.concat([
+      Buffer.from(proofResult.proofA),
+      Buffer.from(proofResult.proofB),
+      Buffer.from(proofResult.proofC),
+    ]);
+
+    const tx = new StellarSdk.TransactionBuilder(account, {
+      fee: "10000000",
+      networkPassphrase: this.config.networkPassphrase,
+    })
+      .addOperation(
+        contract.call(
+          "withdraw",
+          StellarSdk.xdr.ScVal.scvBytes(proofBytes),
+          bigintToScVal(this.tree.root),
+          bigintToScVal(note.nullifierHash),
+          StellarSdk.nativeToScVal(recipient, { type: "address" }),
+          StellarSdk.nativeToScVal(relayerAddress, { type: "address" }),
+          StellarSdk.nativeToScVal(fee, { type: "i128" }),
+          StellarSdk.nativeToScVal(0, { type: "i128" })
+        )
+      )
+      .setTimeout(60)
+      .build();
+
+    const simulated = await this.server.simulateTransaction(tx);
+    if (StellarSdk.SorobanRpc.Api.isSimulationError(simulated)) {
+      throw new Error(
+        `Simulation failed: ${(simulated as StellarSdk.SorobanRpc.Api.SimulateTransactionErrorResponse).error}`
+      );
+    }
+
+    const assembled = StellarSdk.SorobanRpc.assembleTransaction(
+      tx,
+      simulated as StellarSdk.SorobanRpc.Api.SimulateTransactionSuccessResponse
+    ).build();
+    
+    assembled.sign(signer);
+
+    const sendResult = await this.server.sendTransaction(assembled);
+    if (sendResult.status === "ERROR") {
+      throw new Error(`Transaction failed: ${JSON.stringify(sendResult)}`);
+    }
+
+    await this.waitForTx(sendResult.hash);
+
+    return {
+      txHash: sendResult.hash,
+      nullifierHash: note.nullifierHash.toString(),
+    };
   }
 
   /**
@@ -243,6 +298,11 @@ export class VeilClient {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       response = await this.server.getTransaction(hash);
     }
+    
+    if (response.status === "FAILED") {
+      throw new Error(`Transaction failed on-chain: ${JSON.stringify(response)}`);
+    }
+    
     return response;
   }
 

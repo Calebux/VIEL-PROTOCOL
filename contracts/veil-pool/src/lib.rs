@@ -197,6 +197,133 @@ impl VeilPool {
         });
     }
 
+    /// Set the swap router contract address. Admin-only.
+    pub fn set_swap_router(env: Env, router: Address) {
+        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+        admin.require_auth();
+        env.storage().instance().set(&DataKey::SwapRouter, &router);
+    }
+
+    /// Withdraw tokens from the pool and swap to a different token via the router.
+    ///
+    /// The ZK proof binds `recipient` as an anti-frontrun constraint. `token_out`
+    /// and `min_amount_out` are user preferences — not security-critical — because
+    /// funds can only go to the proof-bound recipient regardless of swap params.
+    pub fn withdraw_swap(
+        env: Env,
+        proof: ProofData,
+        root: U256,
+        nullifier_hash: U256,
+        recipient: Address,
+        relayer: Address,
+        fee: i128,
+        refund: i128,
+        token_out: Address,
+        min_amount_out: i128,
+    ) {
+        let denomination: i128 = env
+            .storage()
+            .instance()
+            .get(&DataKey::Denomination)
+            .unwrap();
+
+        assert!(fee <= denomination, "fee exceeds denomination");
+        assert!(refund == 0, "refund not supported yet");
+
+        assert!(
+            merkle::is_known_root(&env, &root),
+            "unknown merkle root"
+        );
+
+        assert!(
+            !env.storage()
+                .persistent()
+                .has(&DataKey::Nullifier(nullifier_hash.clone())),
+            "nullifier already spent"
+        );
+
+        // Build public inputs — identical to withdraw()
+        let recipient_field = address_to_field_bytes(&env, &recipient);
+        let relayer_field = address_to_field_bytes(&env, &relayer);
+        let fee_field = i128_to_bytes32(&env, fee);
+        let refund_field = i128_to_bytes32(&env, refund);
+
+        let mut public_inputs: Vec<BytesN<32>> = Vec::new(&env);
+        let root_bytes = root.to_be_bytes();
+        let mut root_arr = [0u8; 32];
+        root_bytes.copy_into_slice(&mut root_arr);
+        public_inputs.push_back(BytesN::from_array(&env, &root_arr));
+
+        let nh_bytes = nullifier_hash.to_be_bytes();
+        let mut nh_arr = [0u8; 32];
+        nh_bytes.copy_into_slice(&mut nh_arr);
+        public_inputs.push_back(BytesN::from_array(&env, &nh_arr));
+
+        public_inputs.push_back(recipient_field);
+        public_inputs.push_back(relayer_field);
+        public_inputs.push_back(fee_field);
+        public_inputs.push_back(refund_field);
+
+        let verifier: Address = env.storage().instance().get(&DataKey::Verifier).unwrap();
+        let verifier_proof = VerifierProofData {
+            a: proof.a,
+            b: proof.b,
+            c: proof.c,
+        };
+
+        let args: Vec<Val> = soroban_sdk::vec![
+            &env,
+            verifier_proof.into_val(&env),
+            public_inputs.into_val(&env)
+        ];
+
+        let verified: bool = env.invoke_contract(&verifier, &Symbol::new(&env, "verify"), args);
+        assert!(verified, "invalid withdrawal proof");
+
+        // Mark nullifier as spent
+        env.storage()
+            .persistent()
+            .set(&DataKey::Nullifier(nullifier_hash.clone()), &true);
+
+        let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
+        let pool_address = env.current_contract_address();
+        let token_client = token::Client::new(&env, &token_addr);
+
+        // Pay relayer fee
+        if fee > 0 {
+            token_client.transfer(&pool_address, &relayer, &fee);
+        }
+
+        // Transfer remaining amount to the swap router, then cross-contract swap
+        let swap_amount = denomination - fee;
+        let router: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::SwapRouter)
+            .expect("swap router not set");
+
+        token_client.transfer(&pool_address, &router, &swap_amount);
+
+        let swap_args: Vec<Val> = soroban_sdk::vec![
+            &env,
+            token_addr.into_val(&env),
+            token_out.into_val(&env),
+            swap_amount.into_val(&env),
+            min_amount_out.into_val(&env),
+            recipient.clone().into_val(&env)
+        ];
+
+        let _amount_out: i128 =
+            env.invoke_contract(&router, &Symbol::new(&env, "swap"), swap_args);
+
+        env.events().publish_event(&WithdrawalEvent {
+            recipient,
+            nullifier_hash,
+            relayer,
+            fee,
+        });
+    }
+
     /// Check if a Merkle root is known.
     pub fn is_known_root(env: Env, root: U256) -> bool {
         merkle::is_known_root(&env, &root)

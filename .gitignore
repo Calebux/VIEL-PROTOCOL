@@ -26,6 +26,9 @@ contracts/*/target/
 .vscode/
 .idea/
 
+# Commitment store (populated at runtime)
+.commitments.json
+
 # OS
 .DS_Store
 Thumbs.db

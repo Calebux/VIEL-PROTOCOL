@@ -8,9 +8,11 @@ import {
   Unlock,
   Clock,
   Shield,
+  ShieldCheck,
   Info,
   ArrowRight,
   CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -66,10 +68,25 @@ function deriveEntries(viewingKey: string): TimelockEntry[] {
   return entries;
 }
 
+interface SubsetInfo {
+  root: string;
+  size: number;
+  commitments: string[];
+}
+
 export default function CompliancePage() {
   const [viewingKey, setViewingKey] = useState("");
   const [entries, setEntries] = useState<TimelockEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [activeTab, setActiveTab] = useState<"viewing-keys" | "privacy-pools">("privacy-pools");
+  const [subsetInfo, setSubsetInfo] = useState<SubsetInfo | null>(null);
+
+  useEffect(() => {
+    fetch("/api/subset")
+      .then((r) => r.json())
+      .then((data) => setSubsetInfo(data))
+      .catch(() => {});
+  }, []);
 
   function handleLoadKey() {
     if (!viewingKey.trim()) return;
@@ -98,19 +115,168 @@ export default function CompliancePage() {
 
       <div className="max-w-2xl mx-auto px-6 py-12">
         <div className="mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-violet-200/60 bg-violet-50/50 text-xs text-violet-700 mb-4">
-            <Eye className="w-3 h-3" />
-            Compliance Audit
-          </div>
           <h1 className="text-3xl font-bold tracking-tight mb-3">
-            Timelocked Viewing Keys
+            Compliance
           </h1>
           <p className="text-muted-foreground leading-relaxed">
-            Enter a viewing key to decrypt transaction history. Entries become
-            viewable only after their configured timelock period expires —
-            preserving real-time privacy while enabling retroactive auditing.
+            Privacy with accountability. Veil supports both timelocked viewing
+            keys for retroactive auditing and Privacy Pools for proving funds
+            aren&apos;t from sanctioned sources — without revealing your identity.
           </p>
         </div>
+
+        {/* Tab switcher */}
+        <div className="flex gap-1 p-1 rounded-lg bg-muted/50 mb-8">
+          <button
+            onClick={() => setActiveTab("privacy-pools")}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "privacy-pools"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Privacy Pools
+          </button>
+          <button
+            onClick={() => setActiveTab("viewing-keys")}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "viewing-keys"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            Viewing Keys
+          </button>
+        </div>
+
+        {/* ── Privacy Pools Tab ── */}
+        {activeTab === "privacy-pools" && (
+          <div className="space-y-6">
+            {/* How subset proofs work */}
+            <div className="rounded-xl border border-border/50 p-6">
+              <h3 className="text-base font-semibold mb-4">How Privacy Pools Work</h3>
+              <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
+                <p>
+                  Based on <a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4563364" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80 inline-flex items-center gap-1">Vitalik Buterin&apos;s 2023 paper <ExternalLink className="w-3 h-3" /></a>,
+                  Privacy Pools let users prove their deposited funds aren&apos;t from sanctioned
+                  or stolen sources — <strong className="text-foreground">without revealing which deposit is theirs</strong>.
+                </p>
+                <p>
+                  An <strong className="text-foreground">Association Set Provider (ASP)</strong> screens
+                  deposits and publishes a curated subset of &quot;approved&quot; commitments. When withdrawing,
+                  a second ZK proof shows your commitment exists in the approved subset tree.
+                </p>
+              </div>
+
+              {/* Visual flow */}
+              <div className="mt-6 rounded-lg bg-muted/30 p-4 overflow-x-auto">
+                <pre className="font-mono text-xs text-muted-foreground leading-relaxed whitespace-pre">
+{`  Deposit          ASP Screening         Withdraw
+  ───────          ─────────────         ────────
+     │                   │                   │
+     │── commitment ───▶│                   │
+     │                   │── screen ───▶    │
+     │                   │── approve ───▶   │
+     │                   │   (subset tree)   │
+     │                   │                   │
+     │                   │    ◀── subset proof ──│
+     │                   │       (ZK: "I'm in   │
+     │                   │        the clean set")│
+     │                   │                   │
+  privacy     compliance without     funds clean
+  preserved   breaking privacy       + private`}
+                </pre>
+              </div>
+            </div>
+
+            {/* ASP status */}
+            <div className="rounded-xl border border-border/50 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold">ASP Status</h3>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium">
+                  Demo Mode
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold tracking-tight">{subsetInfo?.size ?? 0}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Approved</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold tracking-tight">10</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Tree Depth</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold tracking-tight">1,024</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">Max Capacity</div>
+                </div>
+              </div>
+              {subsetInfo?.root && subsetInfo.size > 0 && (
+                <div className="mt-4 pt-4 border-t border-border/30">
+                  <div className="text-xs text-muted-foreground mb-1">Current Subset Root</div>
+                  <div className="font-mono text-xs break-all text-foreground/70">
+                    {subsetInfo.root}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Approved commitments */}
+            <div className="rounded-xl border border-border/50 p-5">
+              <h3 className="text-base font-semibold mb-4">Approved Commitments</h3>
+              {subsetInfo && subsetInfo.commitments.length > 0 ? (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {subsetInfo.commitments.map((c, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      </div>
+                      <span className="font-mono text-xs text-muted-foreground truncate">
+                        {c}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No commitments have been screened yet. Deposit into the pool to see
+                  them auto-approved (demo mode).
+                </p>
+              )}
+            </div>
+
+            {/* Demo note */}
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>
+                In demo mode, the ASP auto-approves all commitments. In production,
+                the ASP would check deposits against OFAC sanctions lists, known
+                stolen fund addresses, and other risk signals before adding them to
+                the approved subset.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ── Viewing Keys Tab ── */}
+        {activeTab === "viewing-keys" && (
+          <div>
+            <div className="mb-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-violet-200/60 bg-violet-50/50 text-xs text-violet-700 mb-4">
+                <Eye className="w-3 h-3" />
+                Timelocked Viewing Keys
+              </div>
+              <p className="text-muted-foreground leading-relaxed text-sm">
+                Enter a viewing key to decrypt transaction history. Entries become
+                viewable only after their configured timelock period expires —
+                preserving real-time privacy while enabling retroactive auditing.
+              </p>
+            </div>
 
         {/* Viewing key input */}
         <div className="mb-8">
@@ -304,6 +470,8 @@ export default function CompliancePage() {
                 </span>
               </div>
             </div>
+          </div>
+        )}
           </div>
         )}
       </div>
