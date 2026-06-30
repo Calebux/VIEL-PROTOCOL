@@ -503,12 +503,12 @@ export default function Home() {
                     <h3 className="text-2xl font-bold tracking-tight mb-2">Private Cash Out</h3>
                     <p className="text-muted-foreground leading-relaxed mb-4">
                       Withdraw from the shielded pool and optionally cash out to local currency
-                      via supported off-ramp providers. Your withdrawal stays private —
+                      via <a href="https://cheesepay.xyz" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline font-medium">CheesePay</a>. Your withdrawal stays private —
                       no public link between your deposit and cash-out.
                     </p>
                     <Button size="sm" className="rounded-full px-6 gap-2 bg-emerald-600 hover:bg-emerald-700" asChild>
-                      <Link href="/wallet/receive">
-                        Receive Funds
+                      <Link href="/wallet/receive?tab=claim">
+                        Cash Out
                         <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     </Button>
@@ -802,7 +802,7 @@ export default function Home() {
                 Privacy that plays by the rules
               </h2>
               <p className="text-muted-foreground mb-8">
-                Your shielded wallet handles deposits, private sends, bundled claim links,
+                Your shielded wallet handles deposits, private sends, swaps,
                 and optional reveal keys for selective disclosure on Stellar.
               </p>
               <div className="flex items-center justify-center gap-3">

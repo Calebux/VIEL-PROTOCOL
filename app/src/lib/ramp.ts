@@ -2,7 +2,7 @@
    Clean interface for fiat on-ramp / off-ramp providers.
 
    On-ramp:  External (Coinbase, Moonpay, etc) → user buys crypto
-   Off-ramp: Real settler API → converts USDC/XLM to local currency
+   Off-ramp: CheesePay (https://cheesepay.xyz) → converts USDC/XLM to local currency
    ──────────────────────────────────────────────────────────── */
 
 export interface RampResult {
@@ -68,19 +68,19 @@ export interface RampProvider {
   getStatus(txId: string): Promise<RampStatusResult>;
 }
 
-/* ── Real Off-Ramp Provider ──────────────────────────────────
-   Connects to your settlement API for real NGN payouts.
+/* ── CheesePay Off-Ramp Provider ─────────────────────────────
+   Connects to CheesePay (https://cheesepay.xyz) for real payouts.
 
    Configure via environment variables:
-     NEXT_PUBLIC_OFFRAMP_API_URL  — your settler API base URL
-     OFFRAMP_API_KEY              — your production API key
+     NEXT_PUBLIC_OFFRAMP_API_URL  — CheesePay API base URL
+     OFFRAMP_API_KEY              — your CheesePay API key
    ──────────────────────────────────────────────────────────── */
 
 const OFFRAMP_API_URL = process.env.NEXT_PUBLIC_OFFRAMP_API_URL || "";
 const OFFRAMP_API_KEY = process.env.OFFRAMP_API_KEY || "";
 
 export class SettlerRampProvider implements RampProvider {
-  name = "Settler";
+  name = "CheesePay";
 
   async onRamp(params: {
     amount: number;

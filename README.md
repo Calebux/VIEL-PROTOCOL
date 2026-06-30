@@ -124,6 +124,9 @@ Compliance-ready: generate viewing keys that can decrypt transaction metadata, b
 ### Encrypted On-chain Memos
 Attach encrypted notes to deposits using NaCl box encryption (x25519-xsalsa20-poly1305), recoverable only by the intended recipient.
 
+### Off-ramp via CheesePay
+Withdraw from the shielded pool and optionally cash out to local currency via [CheesePay](https://cheesepay.xyz). The withdrawal stays private — no public link between deposit and cash-out.
+
 ## Contracts
 
 | Contract | Description |

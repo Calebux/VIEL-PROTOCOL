@@ -917,7 +917,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
                 <Download className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
-                <div className="font-semibold text-sm">Off-ramp to NGN</div>
+                <div className="font-semibold text-sm">Cash out via CheesePay</div>
                 <div className="text-xs text-muted-foreground">Convert to Naira and send to your bank</div>
               </div>
             </div>
