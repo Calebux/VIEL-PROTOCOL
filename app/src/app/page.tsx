@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   ArrowLeftRight,
+  Banknote,
   Sparkles,
   TrendingUp,
   ArrowUpRight,
@@ -276,10 +277,10 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-center text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.95] mb-6 max-w-4xl"
           >
-            <span className="font-body">Private payments,</span>
+            <span className="font-body">Hold stablecoins.</span>
             <br />
-            <span className="font-display italic font-normal">on</span>{" "}
-            <span className="font-body">Stellar</span>
+            <span className="font-display italic font-normal">Cash out</span>{" "}
+            <span className="font-body">privately.</span>
           </motion.h1>
 
           <motion.p
@@ -288,16 +289,14 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-center text-base sm:text-lg text-muted-foreground max-w-2xl mb-10 leading-relaxed"
           >
-            Veil is a shielded wallet for private payments on Stellar.
-            Send and receive tokens through fixed-denomination privacy
-            pools, with no public sender-recipient link. Optional reveal keys let users
-            selectively disclose transaction details for audits, accounting, or compliance.
+            The digital dollar wallet for Stellar. Send instantly to local
+            bank accounts with zero public link between sender and receiver.
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="flex items-center gap-3">
             <Button size="lg" className="rounded-full px-7 gap-2" asChild>
               <Link href="/wallet">
-                Open Shielded Wallet
+                Get Started
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>
@@ -400,7 +399,7 @@ export default function Home() {
               <div className="text-center mb-16">
                 <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">How It Works</h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
-                  Receive, send, and swap privately — Veil removes the public sender-recipient link.
+                  From deposit to bank cash-out — no public link.
                 </p>
               </div>
             </FadeIn>
@@ -409,8 +408,8 @@ export default function Home() {
               {[
                 {
                   step: "01",
-                  title: "Open your shielded wallet",
-                  desc: "Set up your Veil wallet with a PIN. Connect your Freighter wallet and receive funds — tokens enter the shielded pool with a Poseidon commitment added to the on-chain Merkle tree. Your wallet auto-saves the secret note.",
+                  title: "Fund your wallet",
+                  desc: "Connect Freighter, deposit XLM or USDC into a shielded pool. Your secret note is saved automatically.",
                   icon: <ArrowDownLeft className="w-5 h-5" />,
                   color: "text-emerald-600 bg-emerald-50",
                 },
@@ -423,9 +422,9 @@ export default function Home() {
                 },
                 {
                   step: "03",
-                  title: "Swap privately",
-                  desc: "Deposit XLM and withdraw as USDC — or any supported pair. The on-chain swap router changes the token type during withdrawal, adding another privacy layer on top of the ZK proof.",
-                  icon: <ArrowLeftRight className="w-5 h-5" />,
+                  title: "Cash out to bank",
+                  desc: "Withdraw from the pool and cash out to your bank account via CheesePay. On-chain observers see a generic pool withdrawal — zero link to your bank.",
+                  icon: <Banknote className="w-5 h-5" />,
                   color: "text-violet-600 bg-violet-50",
                 },
                 {
@@ -502,9 +501,10 @@ export default function Home() {
                   <div className="flex-1">
                     <h3 className="text-2xl font-bold tracking-tight mb-2">Private Cash Out</h3>
                     <p className="text-muted-foreground leading-relaxed mb-4">
-                      Withdraw from the shielded pool and optionally cash out to local currency
-                      via <a href="https://cheesepay.xyz" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline font-medium">CheesePay</a>. Your withdrawal stays private —
-                      no public link between your deposit and cash-out.
+                      Withdraw privately and cash out to your bank via{" "}
+                      <a href="https://cheesepay.xyz" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline font-medium">CheesePay</a>.
+                      The ZK proof releases funds to the settlement provider — on-chain,
+                      it&apos;s just another pool withdrawal.
                     </p>
                     <Button size="sm" className="rounded-full px-6 gap-2 bg-emerald-600 hover:bg-emerald-700" asChild>
                       <Link href="/wallet/receive?tab=claim">
@@ -799,16 +799,16 @@ export default function Home() {
           <FadeIn>
             <div className="max-w-2xl mx-auto text-center">
               <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-                Privacy that plays by the rules
+                Hold dollars. Move privately.
               </h2>
               <p className="text-muted-foreground mb-8">
-                Your shielded wallet handles deposits, private sends, swaps,
-                and optional reveal keys for selective disclosure on Stellar.
+                Deposit stablecoins, send privately, cash out to bank — all with
+                selective disclosure for compliance.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <Button size="lg" className="rounded-full px-7 gap-2" asChild>
                   <Link href="/wallet">
-                    Open Shielded Wallet
+                    Get Started
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </Button>

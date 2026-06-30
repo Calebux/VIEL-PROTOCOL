@@ -15,6 +15,7 @@ import {
   Eye,
 } from "lucide-react";
 import Link from "next/link";
+import AppShell from "@/components/AppShell";
 
 interface ProofVerification {
   txHash: string;
@@ -105,18 +106,8 @@ export default function ExplorerPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border/40">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-foreground transition-colors">
-            Home
-          </Link>
-          <span>/</span>
-          <span className="text-foreground font-medium">Proof Explorer</span>
-        </div>
-      </div>
-
-      <div className="max-w-3xl mx-auto px-6 py-12">
+    <AppShell>
+      <div className="max-w-3xl mx-auto px-4 lg:px-6 py-6 pb-24 lg:pb-6">
         <div className="mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-200/60 bg-emerald-50/50 text-xs text-emerald-700 mb-4">
             <Shield className="w-3 h-3" />
@@ -283,6 +274,6 @@ export default function ExplorerPage() {
           </span>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

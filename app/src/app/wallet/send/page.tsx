@@ -431,8 +431,8 @@ export default function SendPage() {
               }`}>
                 <ShieldCheck className="h-4 w-4" />
                 {compliance.status === "compliant"
-                  ? "Note is compliance-verified"
-                  : "Compliance status: " + compliance.status.replace("_", " ")}
+                  ? "ASP Verified"
+                  : "ASP Pending"}
               </div>
             )}
 

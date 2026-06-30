@@ -7,6 +7,8 @@ import {
   Send,
   Download,
   Settings,
+  ShieldCheck,
+  Activity,
   MoreHorizontal,
 } from "lucide-react";
 
@@ -14,13 +16,15 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
-  section?: "main" | "advanced";
+  section?: "main" | "network" | "advanced";
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Wallet", href: "/wallet", icon: Wallet, section: "main" },
   { label: "Send", href: "/wallet/send", icon: Send, section: "main" },
   { label: "Receive", href: "/wallet/receive", icon: Download, section: "main" },
+  { label: "Compliance", href: "/compliance", icon: ShieldCheck, section: "network" },
+  { label: "Explorer", href: "/explorer", icon: Activity, section: "network" },
   { label: "Settings", href: "/wallet/settings", icon: Settings, section: "advanced" },
 ];
 
@@ -28,7 +32,7 @@ const MOBILE_TABS: NavItem[] = [
   { label: "Wallet", href: "/wallet", icon: Wallet },
   { label: "Send", href: "/wallet/send", icon: Send },
   { label: "Receive", href: "/wallet/receive", icon: Download },
-  { label: "More", href: "/wallet/settings", icon: MoreHorizontal },
+  { label: "Compliance", href: "/compliance", icon: ShieldCheck },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -40,7 +44,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   const isMobileActive = (href: string) => {
-    if (href === "/wallet") return pathname.startsWith("/wallet");
+    if (href === "/wallet") return pathname.startsWith("/wallet") && !pathname.startsWith("/wallet/send") && !pathname.startsWith("/wallet/receive");
     return pathname.startsWith(href);
   };
 
@@ -58,6 +62,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 py-3 px-3 space-y-0.5">
           {NAV_ITEMS.filter((i) => i.section === "main").map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href + item.label}
+                href={item.href}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+
+          <div className="pt-3 pb-1 px-3">
+            <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
+              Network
+            </span>
+          </div>
+
+          {NAV_ITEMS.filter((i) => i.section === "network").map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (

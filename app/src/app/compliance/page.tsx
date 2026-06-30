@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
+import AppShell from "@/components/AppShell";
 
 interface TimelockEntry {
   id: string;
@@ -102,18 +103,8 @@ export default function CompliancePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border/40">
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-foreground transition-colors">
-            Home
-          </Link>
-          <span>/</span>
-          <span className="text-foreground font-medium">Compliance</span>
-        </div>
-      </div>
-
-      <div className="max-w-2xl mx-auto px-6 py-12">
+    <AppShell>
+      <div className="max-w-2xl mx-auto px-4 lg:px-6 py-6 pb-24 lg:pb-6">
         <div className="mb-10">
           <h1 className="text-3xl font-bold tracking-tight mb-3">
             Compliance
@@ -410,7 +401,7 @@ export default function CompliancePage() {
                 className="gap-2"
                 asChild
               >
-                <Link href="/deposit">
+                <Link href="/wallet/receive">
                   Go to Deposit
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
@@ -474,7 +465,7 @@ export default function CompliancePage() {
           </div>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }
 

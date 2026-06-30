@@ -745,7 +745,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
 
   const handleOffRamp = async () => {
     setError("");
-    setProgress("Submitting off-ramp...");
+    setProgress("Processing cash-out...");
 
     try {
       const rawAmount = activeClaimItems.reduce((sum, item) => sum + (parseNoteRaw(item.note) ?? 0n), 0n);
@@ -761,14 +761,14 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
       });
 
       if (!result.success) {
-        setError(result.message || "Off-ramp failed");
+        setError(result.message || "Cash-out failed");
         return;
       }
 
       setOffRampResult({ txId: result.txId, message: result.message });
       setStep("success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Off-ramp failed");
+      setError(err instanceof Error ? err.message : "Cash-out failed");
     }
   };
 
@@ -972,7 +972,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
             onClick={handleOffRamp}
             disabled={!recipientName || !recipientAccount || !recipientBank}
           >
-            Submit Off-Ramp
+            Cash Out to Bank
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </>
@@ -986,7 +986,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
               <Check className="h-8 w-8 text-emerald-600" />
             </div>
             <h2 className="text-xl font-semibold">
-              {offRampResult ? "Settlement Submitted" : "Withdrawal Complete"}
+              {offRampResult ? "Cash-Out Submitted" : "Withdrawal Complete"}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               {offRampResult
