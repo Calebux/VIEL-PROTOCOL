@@ -29,6 +29,7 @@ import {
   isUnlocked,
   addNote,
   generateViewingKey,
+  getStellarAddress,
 } from "@/lib/noteStore";
 import {
   decomposePoolAmount,
@@ -47,7 +48,7 @@ import rampProvider from "@/lib/ramp";
 /* ── Types ─────────────────────────────────────────────────── */
 
 type Tab = "deposit" | "claim";
-type DepositState = "idle" | "connecting" | "depositing" | "success";
+type DepositState = "idle" | "depositing" | "success";
 type ClaimStep = "paste" | "withdrawing" | "choice" | "offramp" | "success";
 
 interface ClaimPayload {
@@ -172,21 +173,11 @@ function DepositTab() {
     .map((split) => `${split.count}x ${split.tier.label}`)
     .join(" + ");
 
-  // Connect Freighter on mount
+  // Load embedded Stellar address on mount
   useEffect(() => {
     if (address) return;
-    (async () => {
-      try {
-        const { isConnected, requestAccess } = await import("@stellar/freighter-api");
-        const connected = await isConnected();
-        if (connected) {
-          const addr = await requestAccess();
-          setAddress(addr);
-        }
-      } catch {
-        // Freighter not available
-      }
-    })();
+    const addr = getStellarAddress();
+    if (addr) setAddress(addr);
   }, [address]);
 
   const copyAddress = () => {
@@ -201,10 +192,9 @@ function DepositTab() {
     try {
       let addr = address;
       if (!addr) {
-        const { isConnected, requestAccess } = await import("@stellar/freighter-api");
-        const connected = await isConnected();
-        if (!connected) throw new Error("Freighter not found");
-        addr = await requestAccess();
+        const stored = getStellarAddress();
+        if (!stored) throw new Error("Wallet not initialized");
+        addr = stored;
         setAddress(addr);
       }
       const res = await fetch(`${FRIENDBOT_URL}?addr=${addr}`);
@@ -216,18 +206,13 @@ function DepositTab() {
   };
 
   const handleDeposit = async () => {
-    setState("connecting");
+    setState("depositing");
     setError("");
 
     try {
-      const { isConnected, requestAccess } = await import("@stellar/freighter-api");
-      const connected = await isConnected();
-      if (!connected) throw new Error("Freighter not found. Install the Freighter wallet extension.");
-
-      const addr = await requestAccess();
+      const addr = getStellarAddress();
+      if (!addr) throw new Error("Wallet not initialized. Create a wallet first.");
       setAddress(addr);
-
-      setState("depositing");
       if (!canDeposit || !amountBreakdown) {
         throw new Error("Enter an amount that can be split across the available pool tiers.");
       }
@@ -281,15 +266,6 @@ function DepositTab() {
     setTimeout(() => setShareCopied(false), 2000);
   };
 
-  if (state === "connecting") {
-    return (
-      <div className="py-16 text-center space-y-4">
-        <Loader2 className="h-10 w-10 animate-spin mx-auto text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">Connecting to Freighter...</p>
-      </div>
-    );
-  }
-
   if (state === "depositing") {
     return (
       <div className="py-16 text-center space-y-4">
@@ -301,7 +277,7 @@ function DepositTab() {
         </div>
         <div>
           <p className="text-sm font-medium">Depositing to shielded pool...</p>
-          <p className="text-xs text-muted-foreground mt-1">Sign the transaction in Freighter</p>
+          <p className="text-xs text-muted-foreground mt-1">Signing and submitting transaction</p>
         </div>
       </div>
     );
@@ -529,13 +505,11 @@ function DepositTab() {
                 }) : "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={async (e) => {
+                onClick={(e) => {
                   if (address) return;
                   e.preventDefault();
-                  const { isConnected, requestAccess } = await import("@stellar/freighter-api");
-                  const connected = await isConnected();
-                  if (!connected) return;
-                  const addr = await requestAccess();
+                  const addr = getStellarAddress();
+                  if (!addr) return;
                   setAddress(addr);
                   const url = rampProvider.getOnRampUrl({
                     amount: amountRaw ? Number(amountRaw) / 1e7 : Number(BigInt(tier.amount)) / 1e7,
@@ -614,16 +588,13 @@ function DepositTab() {
                 size="sm"
                 className="w-full"
                 variant="outline"
-                onClick={async () => {
-                  const { isConnected, requestAccess } = await import("@stellar/freighter-api");
-                  const connected = await isConnected();
-                  if (!connected) return;
-                  const addr = await requestAccess();
-                  setAddress(addr);
+                onClick={() => {
+                  const addr = getStellarAddress();
+                  if (addr) setAddress(addr);
                 }}
               >
                 <Wallet className="h-3.5 w-3.5 mr-1.5" />
-                Connect Wallet to Show Address
+                Show Address
               </Button>
             )}
           </div>
@@ -691,14 +662,12 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
   const connectAndWithdraw = async () => {
     setError("");
     setStep("withdrawing");
-    setProgress("Connecting wallet...");
+    setProgress("Preparing withdrawal...");
 
     try {
-      const { isConnected, requestAccess } = await import("@stellar/freighter-api");
-      const connected = await isConnected();
-      if (!connected) throw new Error("Freighter wallet not found");
-      const addr = await requestAccess();
-      const address = typeof addr === "string" ? addr : (addr as { address: string }).address;
+      const addr = getStellarAddress();
+      if (!addr) throw new Error("Wallet not initialized");
+      const address = addr;
       setWalletAddress(address);
 
       if (activeClaimItems.length === 0) {
@@ -838,7 +807,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
             disabled={activeClaimItems.length === 0}
           >
             <Download className="h-4 w-4 mr-2" />
-            Connect Wallet & Withdraw{activeClaimItems.length > 1 ? ` ${activeClaimItems.length} Notes` : ""}
+            Withdraw{activeClaimItems.length > 1 ? ` ${activeClaimItems.length} Notes` : ""}
           </Button>
         </>
       )}

@@ -51,16 +51,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* ── Desktop Sidebar ───────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-56 border-r border-border/40 bg-card/50">
+      <aside className="hidden lg:flex flex-col w-60 border-r border-[#1e2329] bg-[#131722]">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 px-5 h-14 border-b border-border/40">
-          <div className="h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
-            <span className="text-background font-bold text-sm">V</span>
+        <Link href="/" className="flex items-center gap-3 px-6 h-16 border-b border-[#1e2329]">
+          <div className="h-8 w-8 rounded-lg bg-[#f7a600] flex items-center justify-center shadow-sm">
+            <span className="text-[#0b0e11] font-black text-base font-mono tracking-tighter">V</span>
           </div>
-          <span className="text-sm font-semibold tracking-tight">Veil Protocol</span>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold tracking-tight text-[#eaecef]">Veil Pro</span>
+            <span className="text-[10px] font-mono text-[#848e9c] uppercase tracking-widest">Shielded Desk</span>
+          </div>
         </Link>
 
-        <nav className="flex-1 py-3 px-3 space-y-0.5">
+        <nav className="flex-1 py-4 px-3 space-y-1">
           {NAV_ITEMS.filter((i) => i.section === "main").map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -68,21 +71,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href + item.label}
                 href={item.href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   active
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    ? "bg-[#f7a600] text-[#0b0e11] font-bold shadow-sm"
+                    : "text-[#848e9c] hover:text-[#eaecef] hover:bg-[#181c25]"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 shrink-0" />
                 {item.label}
               </Link>
             );
           })}
 
-          <div className="pt-3 pb-1 px-3">
-            <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
-              Network
+          <div className="pt-4 pb-1.5 px-3.5">
+            <span className="text-[10px] font-mono font-bold text-[#848e9c]/70 uppercase tracking-wider">
+              Network & Audit
             </span>
           </div>
 
@@ -93,21 +96,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href + item.label}
                 href={item.href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   active
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    ? "bg-[#f7a600] text-[#0b0e11] font-bold shadow-sm"
+                    : "text-[#848e9c] hover:text-[#eaecef] hover:bg-[#181c25]"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 shrink-0" />
                 {item.label}
               </Link>
             );
           })}
 
-          <div className="pt-3 pb-1 px-3">
-            <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
-              Advanced
+          <div className="pt-4 pb-1.5 px-3.5">
+            <span className="text-[10px] font-mono font-bold text-[#848e9c]/70 uppercase tracking-wider">
+              Preferences
             </span>
           </div>
 
@@ -118,13 +121,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href + item.label}
                 href={item.href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   active
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    ? "bg-[#f7a600] text-[#0b0e11] font-bold shadow-sm"
+                    : "text-[#848e9c] hover:text-[#eaecef] hover:bg-[#181c25]"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 shrink-0" />
                 {item.label}
               </Link>
             );
@@ -135,41 +138,45 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* ── Main Content ──────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Top bar (mobile + desktop) */}
-        <header className="h-14 border-b border-border/40 flex items-center justify-between px-4 lg:px-6 bg-card/50">
-          <Link href="/" className="lg:hidden flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
-              <span className="text-background font-bold text-sm">V</span>
+        <header className="h-16 border-b border-[#1e2329] flex items-center justify-between px-4 lg:px-6 bg-[#131722]">
+          <Link href="/" className="lg:hidden flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-[#f7a600] flex items-center justify-center">
+              <span className="text-[#0b0e11] font-black text-sm font-mono">V</span>
             </div>
-            <span className="text-sm font-semibold">Veil</span>
+            <span className="text-sm font-bold text-[#eaecef]">Veil Pro</span>
           </Link>
-          <div className="hidden lg:block text-sm font-medium text-muted-foreground">
-            Shielded Wallet
+          <div className="hidden lg:flex items-center gap-3">
+            <span className="text-xs font-mono font-bold text-[#eaecef] tracking-wide">
+              SHIELDED DESK / STELLAR SOROBAN
+            </span>
+            <span className="text-[11px] font-mono bg-[#181c25] border border-[#1e2329] px-2.5 py-1 rounded text-[#848e9c]">
+              Protocol v2.4
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Pools active
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-3 text-xs font-mono">
+              <span className="inline-flex items-center gap-1.5 bg-[#181c25] border border-[#1e2329] px-2.5 py-1 rounded text-[#0ecb81]">
+                <span className="h-2 w-2 rounded-full bg-[#0ecb81] animate-pulse" />
+                ASP Clean Set: Active
               </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Relayer online
+              <span className="inline-flex items-center gap-1.5 bg-[#181c25] border border-[#1e2329] px-2.5 py-1 rounded text-[#848e9c]">
+                Relayer: 12ms
               </span>
             </div>
-            <div className="text-xs font-mono bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-md">
-              Mainnet Pilot
+            <div className="text-xs font-mono font-bold bg-[#f7a600]/15 border border-[#f7a600]/40 text-[#f7a600] px-3 py-1 rounded-md">
+              MAINNET PILOT
             </div>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-[#0b0e11]">
           {children}
         </main>
       </div>
 
       {/* ── Mobile Bottom Tabs ────────────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border/40 flex items-center justify-around h-16 z-50">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-[#131722] border-t border-[#1e2329] flex items-center justify-around h-16 z-50">
         {MOBILE_TABS.map((item) => {
           const Icon = item.icon;
           const active = isMobileActive(item.href);
@@ -177,12 +184,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link
               key={item.label}
               href={item.href}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 ${
-                active ? "text-foreground" : "text-muted-foreground"
+              className={`flex flex-col items-center gap-1 px-3 py-1.5 transition-colors ${
+                active ? "text-[#f7a600]" : "text-[#848e9c]"
               }`}
             >
               <Icon className="h-5 w-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider">{item.label}</span>
             </Link>
           );
         })}

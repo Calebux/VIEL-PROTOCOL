@@ -227,9 +227,7 @@ export default function SendPage() {
     setError("");
 
     try {
-      // Connect Freighter so it can sign the withdrawal tx
-      const { requestAccess } = await import("@stellar/freighter-api");
-      await requestAccess();
+      if (!isUnlocked()) throw new Error("Wallet is locked");
 
       let step = 0;
       const result = await executeWithdraw(

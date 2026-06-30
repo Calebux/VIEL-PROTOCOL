@@ -34,6 +34,7 @@ import {
   getUnspentNotes,
   getAllActivity,
   generateViewingKey,
+  getStellarAddress,
   type StoredNote,
 } from "@/lib/noteStore";
 
@@ -138,12 +139,12 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="flex flex-col items-center gap-2 group p-3 rounded-xl border border-border/60 bg-card hover:border-foreground/30 transition-all hover:-translate-y-0.5 w-20 text-center shadow-2xs"
+      className="flex flex-col items-center gap-2.5 group p-3.5 rounded-xl border border-[#1e2329] bg-[#131722] hover:border-[#f7a600] transition-all hover:-translate-y-0.5 flex-1 text-center shadow-sm"
     >
-      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center group-hover:bg-foreground group-hover:text-background transition-colors text-foreground">
+      <div className="h-10 w-10 rounded-lg bg-[#181c25] border border-[#1e2329] flex items-center justify-center group-hover:bg-[#f7a600] group-hover:text-[#0b0e11] transition-colors text-[#eaecef]">
         <Icon className="h-4 w-4" />
       </div>
-      <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+      <span className="text-xs font-mono font-medium text-[#848e9c] group-hover:text-[#eaecef] transition-colors">
         {label}
       </span>
     </Link>
@@ -159,15 +160,15 @@ function PilotStatusStrip() {
   ];
 
   return (
-    <div className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs">
+    <div className="rounded-xl border border-[#1e2329] bg-[#131722] p-4 shadow-sm">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {items.map(([label, value]) => (
-          <div key={label} className="border-l-2 border-foreground/15 pl-3 py-0.5">
-            <div className="text-[11px] font-mono font-medium uppercase tracking-wider text-muted-foreground">
+          <div key={label} className="border-l-2 border-[#f7a600]/40 pl-3.5 py-0.5">
+            <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#848e9c]">
               {label}
             </div>
-            <div className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 shrink-0" />
+            <div className="mt-1 flex items-center gap-1.5 text-xs font-mono font-semibold text-[#eaecef]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#0ecb81] shrink-0 animate-pulse" />
               {value}
             </div>
           </div>
@@ -187,10 +188,12 @@ function StatCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-4">
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="mt-1 text-lg sm:text-2xl font-bold tracking-tight">{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
+    <div className="rounded-xl border border-[#1e2329] bg-[#131722] p-4">
+      <div className="text-[11px] font-mono font-medium text-[#848e9c] uppercase tracking-wider">{label}</div>
+      <div className="mt-1.5 text-xl sm:text-2xl font-mono font-bold tracking-tight text-[#eaecef]">{value}</div>
+      <div className="mt-1 text-[11px] font-mono text-[#0ecb81] flex items-center gap-1">
+        <span className="h-1 w-1 rounded-full bg-[#0ecb81]" /> {detail}
+      </div>
     </div>
   );
 }
@@ -301,6 +304,8 @@ function Dashboard() {
   const [usdcBalance, setUsdcBalance] = useState({ total: 0n, display: "0 USDC" });
   const [activity, setActivity] = useState<StoredNote[]>([]);
   const [unspent, setUnspent] = useState<StoredNote[]>([]);
+  const [addrCopied, setAddrCopied] = useState(false);
+  const stellarAddress = getStellarAddress();
 
   const refresh = useCallback(() => {
     setBalance(getBalance());
@@ -321,29 +326,49 @@ function Dashboard() {
       <PilotStatusStrip />
 
       {/* Balance Card */}
-      <div className="rounded-xl border border-border/80 bg-card p-6 shadow-2xs">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Shield className="h-3.5 w-3.5 text-emerald-600" /> Total Shielded Liquidity
+      <div className="rounded-xl border border-[#1e2329] bg-[#131722] p-6 shadow-md relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#f7a600]/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-mono uppercase tracking-widest text-[#848e9c] flex items-center gap-2 font-bold">
+            <Shield className="h-4 w-4 text-[#f7a600]" /> TOTAL SHIELDED DESK LIQUIDITY
           </span>
           <button
             onClick={() => setBalanceVisible((v) => !v)}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-[#848e9c] hover:text-[#eaecef] transition-colors p-1"
           >
             {balanceVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
           </button>
         </div>
-        <div className="text-4xl font-mono font-bold tracking-tight mb-4 text-foreground">
+        <div className="text-4xl sm:text-5xl font-mono font-black tracking-tight mb-4 text-[#eaecef]">
           {balanceVisible ? (balance.display || "$0.00") : "••••••••"}
         </div>
-        <div className="flex gap-6 text-xs font-mono text-muted-foreground pt-4 border-t border-border/60">
-          <div>
-            <span className="text-[10px] uppercase block">Stellar XLM</span>
-            <span className="font-semibold text-foreground">{balanceVisible ? xlmBalance.display : "••• XLM"}</span>
+        {stellarAddress && (
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(stellarAddress);
+              setAddrCopied(true);
+              setTimeout(() => setAddrCopied(false), 1500);
+            }}
+            className="flex items-center gap-2 mb-4 px-3 py-1.5 rounded-lg bg-[#181c25] border border-[#1e2329] hover:border-[#f7a600]/40 transition-colors group"
+          >
+            <span className="text-[10px] font-mono text-[#848e9c]">
+              {stellarAddress.slice(0, 6)}...{stellarAddress.slice(-6)}
+            </span>
+            {addrCopied ? (
+              <Check className="h-3 w-3 text-[#0ecb81]" />
+            ) : (
+              <Copy className="h-3 w-3 text-[#848e9c] group-hover:text-[#eaecef]" />
+            )}
+          </button>
+        )}
+        <div className="grid grid-cols-2 gap-4 text-xs font-mono pt-4 border-t border-[#1e2329]">
+          <div className="bg-[#181c25] border border-[#1e2329] rounded-lg p-2.5">
+            <span className="text-[10px] text-[#848e9c] uppercase tracking-wider block mb-0.5">Stellar Soroban XLM</span>
+            <span className="font-bold text-[#eaecef] text-sm">{balanceVisible ? xlmBalance.display : "••• XLM"}</span>
           </div>
-          <div>
-            <span className="text-[10px] uppercase block">Circle USDC</span>
-            <span className="font-semibold text-foreground">{balanceVisible ? usdcBalance.display : "••• USDC"}</span>
+          <div className="bg-[#181c25] border border-[#1e2329] rounded-lg p-2.5">
+            <span className="text-[10px] text-[#848e9c] uppercase tracking-wider block mb-0.5">Circle Native USDC</span>
+            <span className="font-bold text-[#eaecef] text-sm">{balanceVisible ? usdcBalance.display : "••• USDC"}</span>
           </div>
         </div>
       </div>
@@ -375,18 +400,18 @@ function Dashboard() {
       </div>
 
       {/* Recent Activity */}
-      <div className="rounded-2xl border border-border/60 bg-card">
-        <div className="px-5 py-4 border-b border-border/30 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Recent Activity</h3>
-          <Clock className="h-4 w-4 text-muted-foreground" />
+      <div className="rounded-xl border border-[#1e2329] bg-[#131722] shadow-sm">
+        <div className="px-5 py-4 border-b border-[#1e2329] flex items-center justify-between">
+          <h3 className="text-xs font-mono font-bold text-[#eaecef] uppercase tracking-wider">Recent Desk Activity</h3>
+          <Clock className="h-4 w-4 text-[#848e9c]" />
         </div>
         <div className="px-5">
           {activity.length === 0 ? (
             <div className="py-10 text-center">
-              <Wallet className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No activity yet</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">
-                Receive funds to get started
+              <Wallet className="h-8 w-8 text-[#848e9c]/40 mx-auto mb-2" />
+              <p className="text-sm font-mono text-[#848e9c]">No shielded activity yet</p>
+              <p className="text-xs font-mono text-[#848e9c]/60 mt-1">
+                Deposit funds or receive institutional notes to start
               </p>
             </div>
           ) : (
@@ -398,39 +423,39 @@ function Dashboard() {
       </div>
 
       {/* Notes Section */}
-      <div className="rounded-2xl border border-border/60 bg-card">
+      <div className="rounded-xl border border-[#1e2329] bg-[#131722] shadow-sm">
         <button
           onClick={() => setNotesExpanded((v) => !v)}
-          className="w-full px-5 py-4 flex items-center justify-between"
+          className="w-full px-5 py-4 flex items-center justify-between hover:bg-[#181c25] transition-colors rounded-xl"
         >
-          <h3 className="text-sm font-semibold">
-            Shielded Notes ({unspent.length})
+          <h3 className="text-xs font-mono font-bold text-[#eaecef] uppercase tracking-wider">
+            Unspent Shielded Commitments ({unspent.length})
           </h3>
           {notesExpanded ? (
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            <ChevronUp className="h-4 w-4 text-[#848e9c]" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <ChevronDown className="h-4 w-4 text-[#848e9c]" />
           )}
         </button>
         {notesExpanded && (
-          <div className="px-5 pb-4 space-y-2">
+          <div className="px-5 pb-4 space-y-2 pt-2 border-t border-[#1e2329]">
             {unspent.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No unspent notes
+              <p className="text-xs font-mono text-[#848e9c] text-center py-4">
+                No active commitments in local storage
               </p>
             ) : (
               unspent.map((note) => (
                 <div
                   key={note.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                  className="flex items-center justify-between p-3 rounded-lg bg-[#181c25] border border-[#1e2329]"
                 >
                   <div>
-                    <span className="text-sm font-semibold">{note.amountDisplay}</span>
-                    <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">
-                      unspent
+                    <span className="text-sm font-mono font-bold text-[#eaecef]">{note.amountDisplay}</span>
+                    <span className="ml-2 text-[10px] font-mono px-2 py-0.5 rounded bg-[#0ecb81]/15 text-[#0ecb81] border border-[#0ecb81]/30 font-bold">
+                      CLEAN NOTE
                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground font-mono">
+                  <span className="text-xs font-mono text-[#848e9c]">
                     {note.id}
                   </span>
                 </div>

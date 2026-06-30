@@ -260,18 +260,9 @@ export async function executeDeposit(
     }
   }
 
-  // 5. Sign with Freighter
-  const { signTransaction } = await import("@stellar/freighter-api");
-  const signedXDR = await signTransaction(preparedXDR, {
-    networkPassphrase: NETWORK_PASSPHRASE,
-  });
-
-  // Handle both v1 (string) and v2 (object) Freighter API responses
-  const signedTxXdr = typeof signedXDR === "string" ? signedXDR : (signedXDR as { signedTxXdr: string }).signedTxXdr;
-
-  if (!signedTxXdr) {
-    throw new Error("Transaction signing was rejected in Freighter");
-  }
+  // 5. Sign with embedded keypair
+  const { signTransactionXdr } = await import("@/lib/noteStore");
+  const signedTxXdr = signTransactionXdr(preparedXDR, NETWORK_PASSPHRASE);
 
   // 6. Submit via raw RPC
   const submitRes = await fetch(RPC_URL, {

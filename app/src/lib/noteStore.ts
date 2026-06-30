@@ -1,7 +1,8 @@
 "use client";
 
 import { sha256 } from "@noble/hashes/sha256";
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import nacl from "tweetnacl";
 
 /* ── Data Model ─────────────────────────────────────────────── */
 
@@ -22,6 +23,9 @@ interface WalletData {
   pinHash: string;
   notes: StoredNote[];
   createdAt: number;
+  stellarPublicKey?: string;
+  encryptedSecretKey?: string;
+  encryptionSalt?: string;
 }
 
 const STORAGE_KEY = "veil_wallet_v1";
@@ -57,6 +61,55 @@ function save(data: WalletData) {
 
 let unlocked = false;
 
+/* ── Keypair encryption helpers ────────────────────────────── */
+
+function deriveKey(pin: string, saltHex: string): Uint8Array {
+  const salt = hexToBytes(saltHex);
+  const input = new TextEncoder().encode(pin);
+  const combined = new Uint8Array(input.length + salt.length);
+  combined.set(input);
+  combined.set(salt, input.length);
+  return sha256(combined); // 32 bytes — fits secretbox key
+}
+
+function encryptSecret(secret: string, pin: string, saltHex: string): string {
+  const key = deriveKey(pin, saltHex);
+  const nonce = nacl.randomBytes(24);
+  const plaintext = new TextEncoder().encode(secret);
+  const ciphertext = nacl.secretbox(plaintext, nonce, key);
+  // Prepend nonce to ciphertext
+  const combined = new Uint8Array(nonce.length + ciphertext.length);
+  combined.set(nonce);
+  combined.set(ciphertext, nonce.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+function decryptSecret(encrypted: string, pin: string, saltHex: string): string {
+  const key = deriveKey(pin, saltHex);
+  const combined = Uint8Array.from(atob(encrypted), (c) => c.charCodeAt(0));
+  const nonce = combined.slice(0, 24);
+  const ciphertext = combined.slice(24);
+  const plaintext = nacl.secretbox.open(ciphertext, nonce, key);
+  if (!plaintext) throw new Error("Decryption failed — wrong PIN");
+  return new TextDecoder().decode(plaintext);
+}
+
+function generateSalt(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return bytesToHex(bytes);
+}
+
+/* ── In-memory active keypair ──────────────────────────────── */
+
+// We store the Stellar secret (S...) while unlocked and lazily create Keypair
+let activeSecret: string | null = null;
+
+function getKeypairModule(): typeof import("@stellar/stellar-sdk") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require("@stellar/stellar-sdk");
+}
+
 /* ── Public API ─────────────────────────────────────────────── */
 
 export function isWalletInitialized(): boolean {
@@ -65,12 +118,21 @@ export function isWalletInitialized(): boolean {
 
 export function initWallet(pin: string): boolean {
   if (isWalletInitialized()) return false;
+
+  const sdk = getKeypairModule();
+  const keypair = sdk.Keypair.random();
+  const salt = generateSalt();
+
   const data: WalletData = {
     pinHash: hash(pin),
     notes: [],
     createdAt: Date.now(),
+    stellarPublicKey: keypair.publicKey(),
+    encryptedSecretKey: encryptSecret(keypair.secret(), pin, salt),
+    encryptionSalt: salt,
   };
   save(data);
+  activeSecret = keypair.secret();
   unlocked = true;
   return true;
 }
@@ -79,6 +141,21 @@ export function unlockWallet(pin: string): boolean {
   const data = loadRaw();
   if (!data) return false;
   if (data.pinHash !== hash(pin)) return false;
+
+  // Migration: generate keypair if wallet was created before this feature
+  if (!data.encryptedSecretKey) {
+    const sdk = getKeypairModule();
+    const keypair = sdk.Keypair.random();
+    const salt = generateSalt();
+    data.stellarPublicKey = keypair.publicKey();
+    data.encryptedSecretKey = encryptSecret(keypair.secret(), pin, salt);
+    data.encryptionSalt = salt;
+    save(data);
+    activeSecret = keypair.secret();
+  } else {
+    activeSecret = decryptSecret(data.encryptedSecretKey, pin, data.encryptionSalt!);
+  }
+
   unlocked = true;
   return true;
 }
@@ -88,7 +165,29 @@ export function isUnlocked(): boolean {
 }
 
 export function lockWallet() {
+  activeSecret = null;
   unlocked = false;
+}
+
+/**
+ * Returns the Stellar G... public key from storage (no PIN needed).
+ */
+export function getStellarAddress(): string | null {
+  const data = loadRaw();
+  return data?.stellarPublicKey ?? null;
+}
+
+/**
+ * Sign a Soroban transaction XDR with the embedded keypair.
+ * Returns the signed XDR string ready for submission.
+ */
+export function signTransactionXdr(xdr: string, networkPassphrase: string): string {
+  if (!activeSecret) throw new Error("Wallet is locked");
+  const sdk = getKeypairModule();
+  const keypair = sdk.Keypair.fromSecret(activeSecret);
+  const tx = sdk.TransactionBuilder.fromXDR(xdr, networkPassphrase);
+  tx.sign(keypair);
+  return tx.toEnvelope().toXDR("base64");
 }
 
 export function addNote(note: Omit<StoredNote, "id" | "createdAt" | "status">): StoredNote {
@@ -204,6 +303,7 @@ export function resetWallet() {
   if (typeof window !== "undefined") {
     localStorage.removeItem(STORAGE_KEY);
   }
+  activeSecret = null;
   unlocked = false;
 }
 

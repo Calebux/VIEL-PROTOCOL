@@ -6,7 +6,7 @@
  * 3. Compute the Merkle path from filled subtrees
  * 4. Generate a Groth16 ZK proof via snarkjs (in-browser)
  * 5. Build a Soroban `withdraw()` transaction
- * 6. Sign via Freighter + submit via raw JSON-RPC
+ * 6. Sign with embedded keypair + submit via raw JSON-RPC
  */
 import * as StellarSdk from "@stellar/stellar-sdk";
 
@@ -590,19 +590,10 @@ export async function executeWithdraw(
     preparedXDR = preparedTx.toEnvelope().toXDR("base64");
   }
 
-  // 8. Sign with Freighter
-  progress("Waiting for wallet signature...");
-  const { signTransaction } = await import("@stellar/freighter-api");
-  const signedXDR = await signTransaction(preparedXDR, {
-    networkPassphrase: NETWORK_PASSPHRASE,
-  });
-
-  // Handle both v1 (string) and v2 (object) Freighter API responses
-  const signedTxXdr = typeof signedXDR === "string"
-    ? signedXDR
-    : (signedXDR as { signedTxXdr: string }).signedTxXdr;
-
-  if (!signedTxXdr) throw new Error("Transaction signing was rejected");
+  // 8. Sign with embedded keypair
+  progress("Signing transaction...");
+  const { signTransactionXdr } = await import("@/lib/noteStore");
+  const signedTxXdr = signTransactionXdr(preparedXDR, NETWORK_PASSPHRASE);
 
   // 9. Submit via raw RPC
   progress("Broadcasting transaction...");

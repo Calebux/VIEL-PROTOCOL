@@ -409,7 +409,7 @@ export default function Home() {
                 {
                   step: "01",
                   title: "Fund your wallet",
-                  desc: "Connect Freighter, deposit XLM or USDC into a shielded pool. Your secret note is saved automatically.",
+                  desc: "Create a wallet with a PIN, deposit XLM or USDC into a shielded pool. Your secret note is saved automatically.",
                   icon: <ArrowDownLeft className="w-5 h-5" />,
                   color: "text-emerald-600 bg-emerald-50",
                 },
@@ -752,7 +752,7 @@ export default function Home() {
                   {
                     num: "1",
                     title: "Create your shielded wallet",
-                    desc: "Set a PIN and connect your Freighter wallet. Make sure Freighter is set to Stellar mainnet.",
+                    desc: "Set a PIN to create your shielded wallet. A Stellar keypair is generated and encrypted locally.",
                     href: "/wallet",
                   },
                   {
