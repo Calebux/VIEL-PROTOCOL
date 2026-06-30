@@ -910,15 +910,15 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
 
           <button
             onClick={() => setStep("offramp")}
-            className="w-full text-left rounded-xl border border-border/60 p-5 hover:border-foreground/30 transition-colors bg-card"
+            className="w-full text-left rounded-xl border border-border/80 p-5 hover:border-foreground/30 transition-colors bg-card shadow-2xs"
           >
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                <Download className="h-5 w-5 text-emerald-600" />
+              <div className="h-10 w-10 rounded-lg bg-emerald-50 border border-emerald-200/60 flex items-center justify-center">
+                <Building2 className="h-5 w-5 text-emerald-700" />
               </div>
               <div>
-                <div className="font-semibold text-sm">Cash out via CheesePay</div>
-                <div className="text-xs text-muted-foreground">Convert to Naira and send to your bank</div>
+                <div className="font-semibold text-sm text-foreground">Private Cash Out to Bank Account</div>
+                <div className="text-xs text-muted-foreground">Direct local fiat settlement with zero link to your public wallet</div>
               </div>
             </div>
           </button>

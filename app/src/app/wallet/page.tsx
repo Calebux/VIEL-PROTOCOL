@@ -136,13 +136,14 @@ function QuickAction({
   color: string;
 }) {
   return (
-    <Link href={href} className="flex flex-col items-center gap-1.5 group">
-      <div
-        className={`h-12 w-12 rounded-full ${color} flex items-center justify-center transition-transform group-hover:scale-105`}
-      >
-        <Icon className="h-5 w-5" />
+    <Link
+      href={href}
+      className="flex flex-col items-center gap-2 group p-3 rounded-xl border border-border/60 bg-card hover:border-foreground/30 transition-all hover:-translate-y-0.5 w-20 text-center shadow-2xs"
+    >
+      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center group-hover:bg-foreground group-hover:text-background transition-colors text-foreground">
+        <Icon className="h-4 w-4" />
       </div>
-      <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+      <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">
         {label}
       </span>
     </Link>
@@ -151,22 +152,22 @@ function QuickAction({
 
 function PilotStatusStrip() {
   const items = [
-    ["Network", "Mainnet Pilot"],
-    ["Pools", "Active"],
-    ["Relayer", "Online"],
-    ["Limit", "Small amounts"],
+    ["Network", "Stellar Soroban"],
+    ["ASP Status", "Active Clean Pool"],
+    ["Relayer", "Online (Decorrelated)"],
+    ["Tiers", "$100 — $5,000 Notes"],
   ];
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    <div className="rounded-xl border border-border/80 bg-card p-4 shadow-2xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {items.map(([label, value]) => (
-          <div key={label} className="rounded-xl bg-muted/45 px-3 py-2">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <div key={label} className="border-l-2 border-foreground/15 pl-3 py-0.5">
+            <div className="text-[11px] font-mono font-medium uppercase tracking-wider text-muted-foreground">
               {label}
             </div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <div className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 shrink-0" />
               {value}
             </div>
           </div>
@@ -320,10 +321,10 @@ function Dashboard() {
       <PilotStatusStrip />
 
       {/* Balance Card */}
-      <div className="rounded-2xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-6">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-sm text-muted-foreground font-medium flex items-center gap-1.5">
-            <Shield className="h-3.5 w-3.5" /> Shielded Balance
+      <div className="rounded-xl border border-border/80 bg-card p-6 shadow-2xs">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Shield className="h-3.5 w-3.5 text-emerald-600" /> Total Shielded Liquidity
           </span>
           <button
             onClick={() => setBalanceVisible((v) => !v)}
@@ -332,21 +333,27 @@ function Dashboard() {
             {balanceVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
           </button>
         </div>
-        <div className="text-3xl font-bold tracking-tight mb-4">
-          {balanceVisible ? (balance.display || "0") : "••••••"}
+        <div className="text-4xl font-mono font-bold tracking-tight mb-4 text-foreground">
+          {balanceVisible ? (balance.display || "$0.00") : "••••••••"}
         </div>
-        <div className="flex gap-4 text-sm text-muted-foreground">
-          <span>{balanceVisible ? xlmBalance.display : "••• XLM"}</span>
-          <span>{balanceVisible ? usdcBalance.display : "••• USDC"}</span>
+        <div className="flex gap-6 text-xs font-mono text-muted-foreground pt-4 border-t border-border/60">
+          <div>
+            <span className="text-[10px] uppercase block">Stellar XLM</span>
+            <span className="font-semibold text-foreground">{balanceVisible ? xlmBalance.display : "••• XLM"}</span>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase block">Circle USDC</span>
+            <span className="font-semibold text-foreground">{balanceVisible ? usdcBalance.display : "••• USDC"}</span>
+          </div>
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="flex justify-around py-2">
-        <QuickAction icon={Send} label="Send" href="/wallet/send" color="bg-blue-100 text-blue-600" />
-        <QuickAction icon={Download} label="Receive" href="/wallet/receive" color="bg-emerald-100 text-emerald-600" />
-        <QuickAction icon={ArrowLeftRight} label="Swap" href="/wallet/send" color="bg-purple-100 text-purple-600" />
-        <QuickAction icon={ArrowUpRight} label="Cash Out" href="/wallet/receive?tab=claim" color="bg-amber-100 text-amber-600" />
+      <div className="flex justify-between gap-3 py-2">
+        <QuickAction icon={Send} label="Send" href="/wallet/send" color="" />
+        <QuickAction icon={Download} label="Receive" href="/wallet/receive" color="" />
+        <QuickAction icon={ArrowLeftRight} label="Swap" href="/wallet/send" color="" />
+        <QuickAction icon={ArrowUpRight} label="Cash Out" href="/wallet/receive?tab=claim" color="" />
       </div>
 
       <div className="grid grid-cols-3 gap-3">
