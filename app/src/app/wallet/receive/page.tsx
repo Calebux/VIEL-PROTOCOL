@@ -42,7 +42,6 @@ import {
 } from "@/lib/tokens";
 import { executeDeposit, type DepositResult } from "@/lib/deposit";
 import { executeWithdraw } from "@/lib/withdraw";
-import { getCorridor } from "@/lib/corridors";
 import rampProvider from "@/lib/ramp";
 
 /* ── Types ─────────────────────────────────────────────────── */
@@ -507,7 +506,7 @@ function DepositTab() {
       <div className="space-y-2">
         <label className="text-xs font-medium text-muted-foreground block">Fund your wallet</label>
 
-        {/* Buy crypto (on-ramp) */}
+        {/* Buy crypto (external exchange) */}
         <div className="rounded-xl border border-border/60 overflow-hidden">
           <div className="p-4 bg-gradient-to-br from-blue-50/50 to-card">
             <div className="flex items-center gap-3 mb-3">
@@ -773,9 +772,18 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
     }
   };
 
-  // Banks from corridors
-  const corridor = getCorridor("usd-ngn");
-  const banks = corridor?.banks ?? [];
+  // Banks for off-ramp cash out (NGN)
+  const banks = [
+    { code: "044", name: "Access Bank" }, { code: "050", name: "Ecobank" },
+    { code: "070", name: "Fidelity Bank" }, { code: "011", name: "First Bank" },
+    { code: "058", name: "GTBank" }, { code: "082", name: "Keystone Bank" },
+    { code: "526", name: "Kuda Bank" }, { code: "100004", name: "Opay" },
+    { code: "100002", name: "Paga" }, { code: "999991", name: "PalmPay" },
+    { code: "076", name: "Polaris Bank" }, { code: "039", name: "Stanbic IBTC" },
+    { code: "232", name: "Sterling Bank" }, { code: "032", name: "Union Bank" },
+    { code: "033", name: "UBA" }, { code: "035", name: "Wema Bank" },
+    { code: "057", name: "Zenith Bank" },
+  ];
 
   return (
     <div className="space-y-5">

@@ -10,23 +10,23 @@ const RELAYER_URL =
 const REQUIRE_SUBSET_PROOF = process.env.REQUIRE_SUBSET_PROOF === "true";
 
 /**
- * POST /api/relay — Handles deposit note generation and withdrawal relay.
+ * POST /api/relay — Withdrawal relay only.
  *
- * Deposits:
- *   Generates a secret note in the SDK-compatible format:
- *   veil-<nullifier>-<secret>-<denomination>-<leafIndex>
- *   In production the client builds + signs the deposit TX via Freighter.
+ * Forwards withdrawal requests to the relayer service, which submits
+ * the on-chain TX. The relayer adds random delays for timing decorrelation.
  *
- * Withdrawals:
- *   Forwards the withdrawal request to the relayer service, which submits
- *   the on-chain TX. The relayer adds random delays for timing decorrelation.
+ * NOTE: Deposit note generation is handled entirely client-side.
+ * The server must never generate nullifiers or secrets.
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
     if (body.action === "deposit") {
-      return handleDeposit(body);
+      return NextResponse.json(
+        { error: "Deposits must be constructed client-side. The server does not generate notes." },
+        { status: 400 }
+      );
     }
 
     if (body.action === "withdraw") {
@@ -40,31 +40,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
-}
-
-async function handleDeposit(body: Record<string, unknown>) {
-  const nullifier = randomHex(32);
-  const secret = randomHex(32);
-  const denomination = (body.denomination as string) || "1000000000";
-  const noteString = `veil-${nullifier}-${secret}-${denomination}-0`;
-
-  // Generate viewing key if requested
-  let viewingKey: string | undefined;
-  if (body.enableViewingKey) {
-    viewingKey = `vk-${randomHex(24)}`;
-  }
-
-  return NextResponse.json({
-    success: true,
-    noteString,
-    txHash: `deposit_${Date.now().toString(16)}`,
-    leafIndex: 0,
-    viewingKey,
-  });
 }
 
 async function verifySubsetProof(
@@ -93,8 +72,8 @@ async function verifySubsetProof(
       const vkPath = path.join(process.cwd(), "public/circuits/subset_verification_key.json");
       vk = JSON.parse(fs.readFileSync(vkPath, "utf-8"));
     } catch {
-      // VK not available — skip cryptographic verification in demo mode
-      return { valid: true };
+      // VK not available — fail hard, do not skip verification
+      return { valid: false, error: "Subset verification key not found — cannot verify proof" };
     }
 
     const publicSignals = subsetProof.publicSignals as string[];
@@ -180,17 +159,15 @@ async function handleWithdraw(body: Record<string, unknown>) {
         return NextResponse.json(data);
       }
     } catch {
-      // Relayer not available — fall through to demo mode
+      // Relayer not available — do NOT fall through to fake success
     }
   }
 
-  // Demo fallback — simulated withdrawal with random delay
-  return NextResponse.json({
-    success: true,
-    txHash: `withdraw_${Date.now().toString(16)}`,
-    estimatedDelay: 3 + Math.floor(Math.random() * 5),
-    complianceStatus,
-  });
+  // Relayer is required for on-chain submission
+  return NextResponse.json(
+    { error: "Relayer unavailable — withdrawal cannot be processed" },
+    { status: 503 }
+  );
 }
 
 async function handleWithdrawSwap(body: Record<string, unknown>) {
@@ -237,32 +214,13 @@ async function handleWithdrawSwap(body: Record<string, unknown>) {
         return NextResponse.json(data);
       }
     } catch {
-      // Relayer not available — fall through to demo mode
+      // Relayer not available — do NOT fall through to fake success
     }
   }
 
-  // Demo fallback — simulated swap withdrawal
-  const swapRate = tokenOut === "USDC" ? 0.12 : tokenOut === "XLM" ? 8.33 : 0.95;
-  const denominationNum = parseInt(parts[3], 10) || 1000000000;
-  const denominationDisplay = tokenOut === "USDC"
-    ? denominationNum / 1e7
-    : denominationNum / 1e7;
-  const estimatedOutput = (denominationDisplay * swapRate * 0.95).toFixed(2);
-
-  return NextResponse.json({
-    success: true,
-    txHash: `swap_${Date.now().toString(16)}`,
-    estimatedDelay: 3 + Math.floor(Math.random() * 5),
-    swap: {
-      tokenOut,
-      estimatedOutput,
-      rate: swapRate,
-    },
-  });
-}
-
-function randomHex(bytes: number): string {
-  const arr = new Uint8Array(bytes);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+  // Relayer is required for on-chain submission
+  return NextResponse.json(
+    { error: "Relayer unavailable — swap withdrawal cannot be processed" },
+    { status: 503 }
+  );
 }

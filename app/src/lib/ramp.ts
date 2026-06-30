@@ -1,8 +1,8 @@
 /* ── Ramp Adapter ─────────────────────────────────────────────
    Clean interface for fiat on-ramp / off-ramp providers.
 
-   On-ramp:  External (Coinbase, Moonpay, etc) → user deposits to Stellar
-   Off-ramp: Real settler API → converts USDC/XLM to NGN and delivers
+   On-ramp:  External (Coinbase, Moonpay, etc) → user buys crypto
+   Off-ramp: Real settler API → converts USDC/XLM to local currency
    ──────────────────────────────────────────────────────────── */
 
 export interface RampResult {
@@ -88,7 +88,7 @@ export class SettlerRampProvider implements RampProvider {
     targetToken: string;
   }): Promise<RampResult> {
     // On-ramp is handled externally (user buys from exchange).
-    // This simulates the step for the remittance pipeline visualization.
+    // This returns a simulated result for the UI visualization.
     await new Promise((r) => setTimeout(r, 1500));
     return {
       success: true,

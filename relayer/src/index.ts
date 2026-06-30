@@ -15,8 +15,27 @@ import fs from "fs";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const app = express();
-app.use(cors());
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
+const TREE_AUTH_SECRET = process.env.TREE_AUTH_SECRET || "";
+
+app.use(cors({
+  origin: FRONTEND_ORIGIN,
+  methods: ["GET", "POST"],
+}));
 app.use(express.json());
+
+// Basic rate limiting — max 20 requests per minute per IP for relay endpoints
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+function isRateLimited(ip: string, maxPerMinute = 20): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 });
+    return false;
+  }
+  entry.count++;
+  return entry.count > maxPerMinute;
+}
 
 const PORT = parseInt(process.env.RELAYER_PORT || "3001", 10);
 const FEE_BPS = parseInt(process.env.RELAYER_FEE_BPS || "50", 10);
@@ -75,6 +94,13 @@ app.post("/relay", (req, res) => {
     return;
   }
 
+  // Rate limit
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  if (isRateLimited(ip)) {
+    res.status(429).json({ success: false, error: "Too many requests" });
+    return;
+  }
+
   // Check for duplicate
   if (results.has(nullifierHash)) {
     const existing = results.get(nullifierHash)!;
@@ -120,6 +146,13 @@ app.post("/relay-swap", (req, res) => {
 
   if (!proofA || !proofB || !proofC || !root || !nullifierHash || !recipient || !tokenOut) {
     res.status(400).json({ success: false, error: "Missing required fields" });
+    return;
+  }
+
+  // Rate limit
+  const swapIp = req.ip || req.socket.remoteAddress || "unknown";
+  if (isRateLimited(swapIp)) {
+    res.status(429).json({ success: false, error: "Too many requests" });
     return;
   }
 
@@ -212,9 +245,16 @@ app.get("/tree", (_req, res) => {
 });
 
 app.post("/tree/add", (req, res) => {
+  // Require authentication — shared secret in Authorization header
+  const authHeader = req.headers.authorization;
+  if (!TREE_AUTH_SECRET || authHeader !== `Bearer ${TREE_AUTH_SECRET}`) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const { commitment } = req.body;
-  if (!commitment) {
-    res.status(400).json({ error: "Missing commitment" });
+  if (!commitment || typeof commitment !== "string") {
+    res.status(400).json({ error: "Missing or invalid commitment" });
     return;
   }
   depositLeaves.push(commitment);

@@ -21,7 +21,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Activity,
-  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -96,7 +95,7 @@ function DashboardPreview() {
           <SidebarItem active>Wallet</SidebarItem>
           <SidebarItem>Send</SidebarItem>
           <SidebarItem>Receive</SidebarItem>
-          <SidebarItem>Remit</SidebarItem>
+          <SidebarItem>History</SidebarItem>
           <SidebarItem>Compliance</SidebarItem>
           <SidebarItem>Explorer</SidebarItem>
         </div>
@@ -147,7 +146,7 @@ function DashboardPreview() {
             <div className="divide-y divide-border/30">
               <TxRow type="deposit" amount="+100.00 XLM" time="2m ago" status="confirmed" />
               <TxRow type="withdraw" amount="-50.00 XLM" time="45m ago" status="confirmed" />
-              <TxRow type="swap" amount="100 USD → 1,709 MXN" time="1h ago" status="confirmed" />
+              <TxRow type="swap" amount="100 XLM → 12.04 USDC" time="1h ago" status="confirmed" />
               <TxRow type="deposit" amount="+100.00 XLM" time="3h ago" status="confirmed" />
             </div>
           </div>
@@ -179,7 +178,7 @@ function TxRow({ type, amount, time, status }: { type: "deposit" | "withdraw" | 
           {s.icon}
         </div>
         <div>
-          <div className="text-xs font-medium capitalize">{type === "swap" ? "remittance" : type === "deposit" ? "received" : "sent"}</div>
+          <div className="text-xs font-medium capitalize">{type === "swap" ? "swap" : type === "deposit" ? "received" : "sent"}</div>
           <div className="text-[10px] text-muted-foreground">{time}</div>
         </div>
       </div>
@@ -277,10 +276,10 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-center text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.95] mb-6 max-w-4xl"
           >
-            <span className="font-body">Private transfers,</span>
+            <span className="font-body">Private payments,</span>
             <br />
-            <span className="font-display italic font-normal">Selective</span>{" "}
-            <span className="font-body">compliance</span>
+            <span className="font-display italic font-normal">on</span>{" "}
+            <span className="font-body">Stellar</span>
           </motion.h1>
 
           <motion.p
@@ -289,8 +288,8 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-center text-base sm:text-lg text-muted-foreground max-w-2xl mb-10 leading-relaxed"
           >
-            Veil is a shielded wallet and private remittance protocol on Stellar.
-            Send and receive stablecoin payments through fixed-denomination privacy
+            Veil is a shielded wallet for private payments on Stellar.
+            Send and receive tokens through fixed-denomination privacy
             pools, with no public sender-recipient link. Optional reveal keys let users
             selectively disclose transaction details for audits, accounting, or compliance.
           </motion.p>
@@ -298,7 +297,7 @@ export default function Home() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="flex items-center gap-3">
             <Button size="lg" className="rounded-full px-7 gap-2" asChild>
               <Link href="/wallet">
-                Send Private Payment
+                Open Shielded Wallet
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </Button>
@@ -401,7 +400,7 @@ export default function Home() {
               <div className="text-center mb-16">
                 <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">How It Works</h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
-                  From receiving funds to sending privately across borders, Veil is designed to remove the public sender-recipient link.
+                  Receive, send, and swap privately — Veil removes the public sender-recipient link.
                 </p>
               </div>
             </FadeIn>
@@ -424,9 +423,9 @@ export default function Home() {
                 },
                 {
                   step: "03",
-                  title: "Send across borders",
-                  desc: "Choose a remittance corridor (USD→MXN, EUR→NGN, and more). Fiat on-ramps, shielded transfers through the Veil pool, and fiat off-ramps — all visualized in a real-time privacy pipeline.",
-                  icon: <Globe className="w-5 h-5" />,
+                  title: "Swap privately",
+                  desc: "Deposit XLM and withdraw as USDC — or any supported pair. The on-chain swap router changes the token type during withdrawal, adding another privacy layer on top of the ZK proof.",
+                  icon: <ArrowLeftRight className="w-5 h-5" />,
                   color: "text-violet-600 bg-violet-50",
                 },
                 {
@@ -491,30 +490,25 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ─── NEW: Private Remittance Highlight ─── */}
+        {/* ─── Cash Out Highlight ─── */}
         <section className="px-6 py-12">
           <div className="max-w-5xl mx-auto">
             <FadeIn>
               <div className="relative rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/50 p-8 sm:p-10 overflow-hidden">
-                <div className="absolute top-4 right-4">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-semibold">
-                    NEW
-                  </span>
-                </div>
                 <div className="flex flex-col sm:flex-row items-start gap-6">
                   <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                    <Globe className="w-7 h-7" />
+                    <Shield className="w-7 h-7" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-2xl font-bold tracking-tight mb-2">Private Cross-Border Remittance</h3>
+                    <h3 className="text-2xl font-bold tracking-tight mb-2">Private Cash Out</h3>
                     <p className="text-muted-foreground leading-relaxed mb-4">
-                      Send money across borders with transfer amounts private throughout the pipeline.
-                      Fiat on-ramp, shielded transfer through the Veil pool, fiat off-ramp — Stellar's
-                      real payment rails, made confidential with zero-knowledge proofs.
+                      Withdraw from the shielded pool and optionally cash out to local currency
+                      via supported off-ramp providers. Your withdrawal stays private —
+                      no public link between your deposit and cash-out.
                     </p>
                     <Button size="sm" className="rounded-full px-6 gap-2 bg-emerald-600 hover:bg-emerald-700" asChild>
                       <Link href="/wallet/receive">
-                        Try Remittance
+                        Receive Funds
                         <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     </Button>
@@ -775,9 +769,9 @@ export default function Home() {
                   },
                   {
                     num: "4",
-                    title: "Try cross-border remittance",
-                    desc: "Pick a corridor, enter an amount, and preview how private remittance can move through shielded payment rails.",
-                    href: "/wallet/receive",
+                    title: "Explore proof history",
+                    desc: "View past transactions, generate reveal keys for authorized reviewers, and check your privacy pool compliance status.",
+                    href: "/explorer",
                   },
                 ].map((step) => (
                   <Link
