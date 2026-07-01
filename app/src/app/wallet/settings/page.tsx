@@ -12,6 +12,12 @@ import {
   ChevronRight,
   AlertTriangle,
   Check,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  Key,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AppShell from "@/components/AppShell";
@@ -21,7 +27,15 @@ import {
   exportWallet,
   importWallet,
   resetWallet,
+  getActivePin,
+  getActiveSecret,
+  getStellarAddress,
 } from "@/lib/noteStore";
+import {
+  getVaultUsername,
+  clearVaultUsername,
+  saveVault,
+} from "@/lib/vault";
 
 export default function SettingsPage() {
   const [ready, setReady] = useState(false);
@@ -29,6 +43,12 @@ export default function SettingsPage() {
   const [exported, setExported] = useState(false);
   const [importError, setImportError] = useState("");
   const [importSuccess, setImportSuccess] = useState(false);
+  const [vaultSyncing, setVaultSyncing] = useState(false);
+  const [vaultSynced, setVaultSynced] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [recoveryPin, setRecoveryPin] = useState("");
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const [recoveryError, setRecoveryError] = useState("");
 
   useEffect(() => {
     setReady(true);
@@ -174,6 +194,158 @@ export default function SettingsPage() {
           {importError && (
             <p className="text-sm text-destructive px-1">{importError}</p>
           )}
+
+          {/* Recovery Key */}
+          {!showRecovery ? (
+            <button
+              onClick={() => setShowRecovery(true)}
+              className="w-full flex items-center gap-4 rounded-xl border border-border/60 bg-card p-4 hover:bg-muted/30 transition-colors group text-left"
+            >
+              <div className="h-9 w-9 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                <Key className="h-4.5 w-4.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium">Recovery Key</div>
+                <div className="text-xs text-muted-foreground">
+                  View your Stellar secret key for manual backup
+                </div>
+              </div>
+            </button>
+          ) : (
+            <div className="rounded-xl border border-orange-200/60 bg-card p-5 space-y-3">
+              {!recoveryKey ? (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Key className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm font-medium">Enter PIN to reveal</span>
+                  </div>
+                  <input
+                    type="password"
+                    placeholder="Enter PIN"
+                    value={recoveryPin}
+                    onChange={(e) => setRecoveryPin(e.target.value)}
+                    className="w-full h-10 rounded-lg border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  {recoveryError && <p className="text-xs text-destructive">{recoveryError}</p>}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => { setShowRecovery(false); setRecoveryPin(""); setRecoveryError(""); }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        const pin = getActivePin();
+                        if (recoveryPin !== pin && pin !== null) {
+                          // Verify by checking if unlock would work
+                          setRecoveryError("Wrong PIN");
+                          return;
+                        }
+                        const secret = getActiveSecret();
+                        if (!secret) { setRecoveryError("Wallet is locked"); return; }
+                        setRecoveryKey(secret);
+                        setRecoveryError("");
+                      }}
+                    >
+                      Reveal
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-orange-600">
+                      Keep this secret key safe. Anyone with it can access your funds.
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 border border-border p-3 font-mono text-xs break-all select-all">
+                    {recoveryKey}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => { setRecoveryKey(null); setRecoveryPin(""); setShowRecovery(false); }}
+                  >
+                    Done
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Cloud Vault */}
+          {(() => {
+            const vaultUser = getVaultUsername();
+            return vaultUser ? (
+              <>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1 pt-4 pb-1">
+                  Cloud Vault
+                </div>
+
+                <div className="rounded-xl border border-border/60 bg-card p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center shrink-0">
+                      <Cloud className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">Connected</div>
+                      <div className="text-xs text-muted-foreground font-mono truncate">
+                        {vaultUser}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      disabled={vaultSyncing}
+                      onClick={async () => {
+                        const pin = getActivePin();
+                        if (!pin) return;
+                        setVaultSyncing(true);
+                        try {
+                          await saveVault(vaultUser, pin);
+                          setVaultSynced(true);
+                          setTimeout(() => setVaultSynced(false), 2000);
+                        } catch (err) {
+                          console.warn("[vault] sync failed:", err);
+                        } finally {
+                          setVaultSyncing(false);
+                        }
+                      }}
+                    >
+                      {vaultSynced ? (
+                        <><Check className="h-3.5 w-3.5 mr-1.5" /> Synced</>
+                      ) : vaultSyncing ? (
+                        <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Syncing...</>
+                      ) : (
+                        <><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Sync Now</>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        clearVaultUsername();
+                        window.location.reload();
+                      }}
+                    >
+                      <CloudOff className="h-3.5 w-3.5 mr-1.5" /> Disconnect
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : null;
+          })()}
 
           {/* Danger Zone */}
           <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1 pt-4 pb-1">

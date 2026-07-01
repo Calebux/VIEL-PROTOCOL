@@ -1,0 +1,147 @@
+"use client";
+
+import { sha256 } from "@noble/hashes/sha256";
+import { bytesToHex } from "@noble/hashes/utils";
+import nacl from "tweetnacl";
+import {
+  STORAGE_KEY,
+  type WalletData,
+  loadRaw,
+  getActivePin,
+  setOnMutation,
+} from "./noteStore";
+
+/* ── Constants ──────────────────────────────────────────── */
+
+const VAULT_USERNAME_KEY = "veil_vault_username";
+const VAULT_PREFIX = "veil-vault-v1:";
+
+/* ── Identifier ─────────────────────────────────────────── */
+
+export function vaultIdentifier(username: string): string {
+  const input = new TextEncoder().encode(VAULT_PREFIX + username);
+  return bytesToHex(sha256(input));
+}
+
+/* ── Encrypt / Decrypt ──────────────────────────────────── */
+
+export function encryptVault(walletJson: string, pin: string): string {
+  const salt = nacl.randomBytes(16);
+  const keyInput = new TextEncoder().encode(pin);
+  const combined = new Uint8Array(keyInput.length + salt.length);
+  combined.set(keyInput);
+  combined.set(salt, keyInput.length);
+  const key = sha256(combined); // 32 bytes
+
+  const nonce = nacl.randomBytes(24);
+  const plaintext = new TextEncoder().encode(walletJson);
+  const ciphertext = nacl.secretbox(plaintext, nonce, key);
+
+  // Layout: salt(16) + nonce(24) + ciphertext
+  const blob = new Uint8Array(16 + 24 + ciphertext.length);
+  blob.set(salt, 0);
+  blob.set(nonce, 16);
+  blob.set(ciphertext, 40);
+  return btoa(String.fromCharCode(...blob));
+}
+
+export function decryptVault(blob: string, pin: string): string {
+  const data = Uint8Array.from(atob(blob), (c) => c.charCodeAt(0));
+  const salt = data.slice(0, 16);
+  const nonce = data.slice(16, 40);
+  const ciphertext = data.slice(40);
+
+  const keyInput = new TextEncoder().encode(pin);
+  const combined = new Uint8Array(keyInput.length + salt.length);
+  combined.set(keyInput);
+  combined.set(salt, keyInput.length);
+  const key = sha256(combined);
+
+  const plaintext = nacl.secretbox.open(ciphertext, nonce, key);
+  if (!plaintext) throw new Error("Wrong PIN or corrupted vault");
+  return new TextDecoder().decode(plaintext);
+}
+
+/* ── Save / Load ────────────────────────────────────────── */
+
+export async function saveVault(username: string, pin: string): Promise<void> {
+  const data = loadRaw();
+  if (!data) throw new Error("No wallet data to save");
+
+  const walletJson = JSON.stringify(data);
+  const identifierHash = vaultIdentifier(username);
+  const encryptedVault = encryptVault(walletJson, pin);
+
+  const res = await fetch("/api/vault", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "save", identifierHash, encryptedVault }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Vault save failed: ${body}`);
+  }
+
+  localStorage.setItem(VAULT_USERNAME_KEY, username);
+}
+
+export async function loadVault(
+  username: string,
+  pin: string
+): Promise<boolean> {
+  const identifierHash = vaultIdentifier(username);
+
+  const res = await fetch("/api/vault", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "load", identifierHash }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Vault load failed: ${body}`);
+  }
+
+  const { found, encryptedVault } = await res.json();
+  if (!found) return false;
+
+  const walletJson = decryptVault(encryptedVault, pin);
+  const walletData: WalletData = JSON.parse(walletJson);
+
+  // Write to localStorage
+  localStorage.setItem(STORAGE_KEY, btoa(JSON.stringify(walletData)));
+  localStorage.setItem(VAULT_USERNAME_KEY, username);
+  return true;
+}
+
+/* ── Username helpers ───────────────────────────────────── */
+
+export function getVaultUsername(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(VAULT_USERNAME_KEY);
+}
+
+export function clearVaultUsername() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(VAULT_USERNAME_KEY);
+  }
+}
+
+/* ── Auto-sync ──────────────────────────────────────────── */
+
+let autoSyncTimeout: ReturnType<typeof setTimeout> | null = null;
+
+export function initAutoSync() {
+  setOnMutation(() => {
+    const username = getVaultUsername();
+    const pin = getActivePin();
+    if (!username || !pin) return;
+
+    // Debounce: wait 2s after last mutation before syncing
+    if (autoSyncTimeout) clearTimeout(autoSyncTimeout);
+    autoSyncTimeout = setTimeout(() => {
+      saveVault(username, pin).catch((err) =>
+        console.warn("[vault] auto-sync failed:", err)
+      );
+    }, 2000);
+  });
+}

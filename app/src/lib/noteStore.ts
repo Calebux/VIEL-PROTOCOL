@@ -19,7 +19,7 @@ export interface StoredNote {
   spentAt?: number;
 }
 
-interface WalletData {
+export interface WalletData {
   pinHash: string;
   notes: StoredNote[];
   createdAt: number;
@@ -28,7 +28,7 @@ interface WalletData {
   encryptionSalt?: string;
 }
 
-const STORAGE_KEY = "veil_wallet_v1";
+export const STORAGE_KEY = "veil_wallet_v1";
 
 /* ── Helpers ────────────────────────────────────────────────── */
 
@@ -44,7 +44,7 @@ function decode(raw: string): WalletData {
   return JSON.parse(atob(raw));
 }
 
-function loadRaw(): WalletData | null {
+export function loadRaw(): WalletData | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
@@ -60,6 +60,20 @@ function save(data: WalletData) {
 }
 
 let unlocked = false;
+let activePin: string | null = null;
+let onMutationCb: (() => void) | null = null;
+
+export function setOnMutation(cb: (() => void) | null) {
+  onMutationCb = cb;
+}
+
+export function getActivePin(): string | null {
+  return activePin;
+}
+
+export function getActiveSecret(): string | null {
+  return activeSecret;
+}
 
 /* ── Keypair encryption helpers ────────────────────────────── */
 
@@ -133,6 +147,7 @@ export function initWallet(pin: string): boolean {
   };
   save(data);
   activeSecret = keypair.secret();
+  activePin = pin;
   unlocked = true;
   return true;
 }
@@ -156,6 +171,7 @@ export function unlockWallet(pin: string): boolean {
     activeSecret = decryptSecret(data.encryptedSecretKey, pin, data.encryptionSalt!);
   }
 
+  activePin = pin;
   unlocked = true;
   return true;
 }
@@ -166,6 +182,7 @@ export function isUnlocked(): boolean {
 
 export function lockWallet() {
   activeSecret = null;
+  activePin = null;
   unlocked = false;
 }
 
@@ -201,6 +218,7 @@ export function addNote(note: Omit<StoredNote, "id" | "createdAt" | "status">): 
   };
   data.notes.push(stored);
   save(data);
+  onMutationCb?.();
   return stored;
 }
 
@@ -213,6 +231,7 @@ export function markSpent(noteId: string, txHash: string) {
     note.spentTxHash = txHash;
     note.spentAt = Date.now();
     save(data);
+    onMutationCb?.();
   }
 }
 
@@ -305,6 +324,7 @@ export function addConfidentialTransfer(
   };
   data.notes.push(stored);
   save(data);
+  onMutationCb?.();
   return stored;
 }
 
@@ -339,6 +359,7 @@ export function resetWallet() {
     localStorage.removeItem(STORAGE_KEY);
   }
   activeSecret = null;
+  activePin = null;
   unlocked = false;
 }
 

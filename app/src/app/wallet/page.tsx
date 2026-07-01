@@ -34,38 +34,86 @@ import {
   getStellarAddress,
   type StoredNote,
 } from "@/lib/noteStore";
+import {
+  saveVault,
+  loadVault,
+  getVaultUsername,
+  initAutoSync,
+} from "@/lib/vault";
 
 /* ── Setup / Unlock Gate ──────────────────────────────────── */
 
 function SetupCard({ onDone }: { onDone: () => void }) {
+  const hasLocal = isWalletInitialized();
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
-  const [mode] = useState<"create" | "unlock">(
-    isWalletInitialized() ? "unlock" : "create"
+  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"create" | "login" | "unlock">(
+    hasLocal ? "unlock" : "create"
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     if (mode === "create") {
-      if (pin.length < 4) {
-        setError("PIN must be at least 4 characters");
-        return;
-      }
-      if (pin !== confirm) {
-        setError("PINs don't match");
-        return;
-      }
+      if (pin.length < 4) { setError("PIN must be at least 4 characters"); return; }
+      if (pin !== confirm) { setError("PINs don't match"); return; }
+      if (username && username.length < 3) { setError("Username must be at least 3 characters"); return; }
       initWallet(pin);
-      onDone();
-    } else {
-      if (!unlockWallet(pin)) {
-        setError("Wrong PIN");
-        return;
+      if (username) {
+        try {
+          setLoading(true);
+          await saveVault(username, pin);
+          initAutoSync();
+        } catch (err) {
+          // Wallet created locally, vault save failed — continue anyway
+          console.warn("[vault] initial save failed:", err);
+        } finally {
+          setLoading(false);
+        }
       }
+      onDone();
+    } else if (mode === "login") {
+      if (!username) { setError("Username is required"); return; }
+      if (!pin) { setError("PIN is required"); return; }
+      try {
+        setLoading(true);
+        const found = await loadVault(username, pin);
+        if (!found) { setError("Vault not found — check your username"); setLoading(false); return; }
+        if (!unlockWallet(pin)) { setError("Wrong PIN"); setLoading(false); return; }
+        initAutoSync();
+        onDone();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Login failed");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      if (!unlockWallet(pin)) { setError("Wrong PIN"); return; }
+      if (getVaultUsername()) initAutoSync();
       onDone();
     }
+  };
+
+  const titles = {
+    create: "Create Wallet",
+    login: "Login",
+    unlock: "Unlock Wallet",
+  };
+
+  const subtitles = {
+    create: "Set a PIN to secure your shielded notes",
+    login: "Restore your wallet from the cloud",
+    unlock: "Enter your PIN to continue",
+  };
+
+  const icons = {
+    create: <Plus className="h-5 w-5 text-background" />,
+    login: <Download className="h-5 w-5 text-background" />,
+    unlock: <Lock className="h-5 w-5 text-background" />,
   };
 
   return (
@@ -76,23 +124,25 @@ function SetupCard({ onDone }: { onDone: () => void }) {
       >
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-foreground flex items-center justify-center">
-            {mode === "create" ? (
-              <Plus className="h-5 w-5 text-background" />
-            ) : (
-              <Lock className="h-5 w-5 text-background" />
-            )}
+            {icons[mode]}
           </div>
           <div>
-            <h2 className="text-lg font-semibold">
-              {mode === "create" ? "Create Wallet" : "Unlock Wallet"}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {mode === "create"
-                ? "Set a PIN to secure your shielded notes"
-                : "Enter your PIN to continue"}
-            </p>
+            <h2 className="text-lg font-semibold">{titles[mode]}</h2>
+            <p className="text-xs text-muted-foreground">{subtitles[mode]}</p>
           </div>
         </div>
+
+        {(mode === "create" || mode === "login") && (
+          <input
+            type="text"
+            placeholder="Username (for cloud backup)"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            autoFocus
+            autoComplete="username"
+          />
+        )}
 
         <input
           type="password"
@@ -100,8 +150,10 @@ function SetupCard({ onDone }: { onDone: () => void }) {
           value={pin}
           onChange={(e) => setPin(e.target.value)}
           className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          autoFocus
+          autoFocus={mode === "unlock"}
+          autoComplete="current-password"
         />
+
         {mode === "create" && (
           <input
             type="password"
@@ -109,12 +161,41 @@ function SetupCard({ onDone }: { onDone: () => void }) {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            autoComplete="new-password"
           />
         )}
+
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" className="w-full">
-          {mode === "create" ? "Create Wallet" : "Unlock"}
+
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? "Please wait..." : titles[mode]}
         </Button>
+
+        {/* Mode toggle links */}
+        {!hasLocal && mode === "create" && (
+          <p className="text-center text-xs text-muted-foreground">
+            Already have a wallet?{" "}
+            <button
+              type="button"
+              onClick={() => { setMode("login"); setError(""); }}
+              className="text-foreground underline underline-offset-2 hover:text-foreground/80"
+            >
+              Login
+            </button>
+          </p>
+        )}
+        {!hasLocal && mode === "login" && (
+          <p className="text-center text-xs text-muted-foreground">
+            New wallet?{" "}
+            <button
+              type="button"
+              onClick={() => { setMode("create"); setError(""); }}
+              className="text-foreground underline underline-offset-2 hover:text-foreground/80"
+            >
+              Create
+            </button>
+          </p>
+        )}
       </form>
     </div>
   );
