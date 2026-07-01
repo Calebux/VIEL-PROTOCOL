@@ -23,15 +23,31 @@ export function vaultIdentifier(username: string): string {
   return bytesToHex(sha256(input));
 }
 
+/* ── Key derivation (PBKDF2, 200k iterations) ──────────── */
+
+const PBKDF2_ITERATIONS = 200_000;
+
+async function deriveKey(pin: string, salt: Uint8Array): Promise<Uint8Array> {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(pin),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: salt as BufferSource, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+    keyMaterial,
+    256 // 32 bytes
+  );
+  return new Uint8Array(bits);
+}
+
 /* ── Encrypt / Decrypt ──────────────────────────────────── */
 
-export function encryptVault(walletJson: string, pin: string): string {
+export async function encryptVault(walletJson: string, pin: string): Promise<string> {
   const salt = nacl.randomBytes(16);
-  const keyInput = new TextEncoder().encode(pin);
-  const combined = new Uint8Array(keyInput.length + salt.length);
-  combined.set(keyInput);
-  combined.set(salt, keyInput.length);
-  const key = sha256(combined); // 32 bytes
+  const key = await deriveKey(pin, salt);
 
   const nonce = nacl.randomBytes(24);
   const plaintext = new TextEncoder().encode(walletJson);
@@ -45,17 +61,13 @@ export function encryptVault(walletJson: string, pin: string): string {
   return btoa(String.fromCharCode(...blob));
 }
 
-export function decryptVault(blob: string, pin: string): string {
+export async function decryptVault(blob: string, pin: string): Promise<string> {
   const data = Uint8Array.from(atob(blob), (c) => c.charCodeAt(0));
   const salt = data.slice(0, 16);
   const nonce = data.slice(16, 40);
   const ciphertext = data.slice(40);
 
-  const keyInput = new TextEncoder().encode(pin);
-  const combined = new Uint8Array(keyInput.length + salt.length);
-  combined.set(keyInput);
-  combined.set(salt, keyInput.length);
-  const key = sha256(combined);
+  const key = await deriveKey(pin, salt);
 
   const plaintext = nacl.secretbox.open(ciphertext, nonce, key);
   if (!plaintext) throw new Error("Wrong PIN or corrupted vault");
@@ -70,7 +82,7 @@ export async function saveVault(username: string, pin: string): Promise<void> {
 
   const walletJson = JSON.stringify(data);
   const identifierHash = vaultIdentifier(username);
-  const encryptedVault = encryptVault(walletJson, pin);
+  const encryptedVault = await encryptVault(walletJson, pin);
 
   const res = await fetch("/api/vault", {
     method: "POST",
@@ -104,7 +116,7 @@ export async function loadVault(
   const { found, encryptedVault } = await res.json();
   if (!found) return false;
 
-  const walletJson = decryptVault(encryptedVault, pin);
+  const walletJson = await decryptVault(encryptedVault, pin);
   const walletData: WalletData = JSON.parse(walletJson);
 
   // Write to localStorage
