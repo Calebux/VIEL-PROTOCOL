@@ -436,7 +436,6 @@ function Dashboard() {
         <QuickAction icon={Send} label="Send" href="/wallet/send" />
         <QuickAction icon={Download} label="Receive" href="/wallet/receive" />
         <QuickAction icon={ArrowLeftRight} label="Swap" href="/wallet/send" />
-        <QuickAction icon={ArrowUpRight} label="Cash Out" href="/wallet/receive?tab=claim" />
       </div>
 
       {/* ── Recent Activity ──────────────────────────────── */}

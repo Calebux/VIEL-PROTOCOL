@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
-  ArrowRight,
   Download,
   Check,
   Loader2,
@@ -14,9 +13,8 @@ import {
   Copy,
   QrCode,
   Shield,
-  Share2,
-  Eye,
   Building2,
+  Eye,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
@@ -32,12 +30,10 @@ import {
   formatTokenAmount,
 } from "@/lib/tokens";
 import { executeWithdraw } from "@/lib/withdraw";
-import rampProvider from "@/lib/ramp";
 
 /* ── Types ─────────────────────────────────────────────────── */
 
 type Tab = "deposit" | "claim";
-type ClaimStep = "paste" | "withdrawing" | "choice" | "offramp" | "success";
 
 interface ClaimPayload {
   note?: string;
@@ -191,7 +187,7 @@ function DepositTab() {
 
 function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
   const initialItems = claimPayloadItems(initialClaim);
-  const [step, setStep] = useState<ClaimStep>("paste");
+  const [step, setStep] = useState<"paste" | "withdrawing" | "success">("paste");
   const [claimItems, setClaimItems] = useState<{ note: string; poolId: string }[]>(initialItems);
   const [noteString, setNoteString] = useState(initialItems[0]?.note || "");
   const [poolId, setPoolId] = useState(initialItems[0]?.poolId || "");
@@ -200,12 +196,6 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
   const [error, setError] = useState("");
   const [progress, setProgress] = useState("");
   const [viewingKey, setViewingKey] = useState("");
-
-  // Off-ramp state
-  const [recipientName, setRecipientName] = useState("");
-  const [recipientAccount, setRecipientAccount] = useState("");
-  const [recipientBank, setRecipientBank] = useState("");
-  const [offRampResult, setOffRampResult] = useState<{ txId: string; message?: string } | null>(null);
 
   useEffect(() => {
     const items = claimPayloadItems(initialClaim);
@@ -230,8 +220,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
     try {
       const addr = getStellarAddress();
       if (!addr) throw new Error("Wallet not initialized");
-      const address = addr;
-      setWalletAddress(address);
+      setWalletAddress(addr);
 
       if (activeClaimItems.length === 0) {
         throw new Error("Enter a valid secret note.");
@@ -242,7 +231,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
         const item = activeClaimItems[i];
         const result = await executeWithdraw(
           item.note,
-          address,
+          addr,
           (s) => setProgress(activeClaimItems.length > 1 ? `Note ${i + 1}/${activeClaimItems.length}: ${s}` : s),
           item.poolId || undefined
         );
@@ -267,55 +256,12 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
       }
 
       setTxHashes(completedTxHashes);
-
-      setStep("choice");
+      setStep("success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Withdrawal failed");
       setStep("paste");
     }
   };
-
-  const handleOffRamp = async () => {
-    setError("");
-    setProgress("Processing cash-out...");
-
-    try {
-      const rawAmount = activeClaimItems.reduce((sum, item) => sum + (parseNoteRaw(item.note) ?? 0n), 0n);
-      const displayAmount = Number(rawAmount) / 1e7;
-
-      const result = await rampProvider.offRamp({
-        amount: displayAmount,
-        token: "USDC",
-        targetCurrency: "NGN",
-        recipient: recipientAccount,
-        recipientName,
-        bankCode: recipientBank,
-      });
-
-      if (!result.success) {
-        setError(result.message || "Cash-out failed");
-        return;
-      }
-
-      setOffRampResult({ txId: result.txId, message: result.message });
-      setStep("success");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Cash-out failed");
-    }
-  };
-
-  // Banks for off-ramp cash out (NGN)
-  const banks = [
-    { code: "044", name: "Access Bank" }, { code: "050", name: "Ecobank" },
-    { code: "070", name: "Fidelity Bank" }, { code: "011", name: "First Bank" },
-    { code: "058", name: "GTBank" }, { code: "082", name: "Keystone Bank" },
-    { code: "526", name: "Kuda Bank" }, { code: "100004", name: "Opay" },
-    { code: "100002", name: "Paga" }, { code: "999991", name: "PalmPay" },
-    { code: "076", name: "Polaris Bank" }, { code: "039", name: "Stanbic IBTC" },
-    { code: "232", name: "Sterling Bank" }, { code: "032", name: "Union Bank" },
-    { code: "033", name: "UBA" }, { code: "035", name: "Wema Bank" },
-    { code: "057", name: "Zenith Bank" },
-  ];
 
   return (
     <div className="space-y-5">
@@ -390,126 +336,6 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
         </div>
       )}
 
-      {/* Step: Choice — Hold or Off-ramp */}
-      {step === "choice" && (
-        <>
-          <div className="text-center py-4">
-            <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
-              <Check className="h-6 w-6 text-emerald-600" />
-            </div>
-            <h3 className="font-semibold">Withdrawal Complete</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatClaimItemsAmount(activeClaimItems)} now in your wallet
-              {walletAddress && ` (${shortenAddress(walletAddress)})`}
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border/60 bg-card p-5 space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Claimed amount</span>
-              <span className="font-semibold">{formatClaimItemsAmount(activeClaimItems)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Shielded notes</span>
-              <span className="font-medium">{activeClaimItems.length}</span>
-            </div>
-            {txHashes.length > 0 && (
-              <div className="space-y-1.5">
-                <span className="text-muted-foreground">Withdrawal transactions</span>
-                {txHashes.map((hash, index) => (
-                  <div key={`${hash}-${index}`} className="rounded-lg bg-muted/45 px-3 py-2 font-mono text-xs truncate">
-                    {hash}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setStep("success")}
-            className="w-full text-left rounded-xl border border-border/60 p-5 hover:border-foreground/30 transition-colors bg-card"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <Wallet className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <div className="font-semibold text-sm">Hold as USDC</div>
-                <div className="text-xs text-muted-foreground">Keep funds in your Stellar wallet</div>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => setStep("offramp")}
-            className="w-full text-left rounded-xl border border-border/80 p-5 hover:border-foreground/30 transition-colors bg-card shadow-2xs"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-emerald-50 border border-emerald-200/60 flex items-center justify-center">
-                <Building2 className="h-5 w-5 text-emerald-700" />
-              </div>
-              <div>
-                <div className="font-semibold text-sm text-foreground">Private Cash Out to Bank Account</div>
-                <div className="text-xs text-muted-foreground">Direct local fiat settlement with zero link to your public wallet</div>
-              </div>
-            </div>
-          </button>
-        </>
-      )}
-
-      {/* Step: Off-ramp form */}
-      {step === "offramp" && (
-        <>
-          <button onClick={() => setStep("choice")} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-            <ArrowLeft className="h-3 w-3" /> Back
-          </button>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Recipient Name</label>
-              <input
-                type="text"
-                value={recipientName}
-                onChange={(e) => setRecipientName(e.target.value)}
-                placeholder="Full name on bank account"
-                className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Account Number</label>
-              <input
-                type="text"
-                value={recipientAccount}
-                onChange={(e) => setRecipientAccount(e.target.value)}
-                placeholder="10-digit bank account number"
-                className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Bank</label>
-              <select
-                value={recipientBank}
-                onChange={(e) => setRecipientBank(e.target.value)}
-                className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">Select bank...</option>
-                {banks.map((b) => (
-                  <option key={b.code} value={b.code}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <Button
-            className="w-full"
-            onClick={handleOffRamp}
-            disabled={!recipientName || !recipientAccount || !recipientBank}
-          >
-            Cash Out to Bank
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        </>
-      )}
-
       {/* Step: Success */}
       {step === "success" && (
         <div className="py-6 space-y-6">
@@ -517,13 +343,10 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
             <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
               <Check className="h-8 w-8 text-emerald-600" />
             </div>
-            <h2 className="text-xl font-semibold">
-              {offRampResult ? "Cash-Out Submitted" : "Withdrawal Complete"}
-            </h2>
+            <h2 className="text-xl font-semibold">Withdrawal Complete</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              {offRampResult
-                ? "Your funds are being delivered to your bank account"
-                : `${formatClaimItemsAmount(activeClaimItems)} is now in your wallet`}
+              {formatClaimItemsAmount(activeClaimItems)} is now in your wallet
+              {walletAddress && ` (${shortenAddress(walletAddress)})`}
             </p>
           </div>
 
@@ -533,7 +356,7 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
                 <h3 className="text-sm font-semibold">Claim receipt</h3>
                 <p className="text-xs text-muted-foreground">Private withdrawal completed</p>
               </div>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+              <span className="rounded-full px-2.5 py-1 text-xs font-medium bg-emerald-100 text-emerald-700">
                 Settled
               </span>
             </div>
@@ -556,18 +379,6 @@ function ClaimTab({ initialClaim }: { initialClaim?: ClaimPayload | null }) {
                   </div>
                 ))}
               </div>
-            )}
-            {offRampResult && (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Settlement Ref</span>
-                  <span className="font-mono text-xs">{offRampResult.txId}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Estimated Delivery</span>
-                  <span>~5 minutes</span>
-                </div>
-              </>
             )}
           </div>
 
