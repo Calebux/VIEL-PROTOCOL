@@ -7,9 +7,9 @@ import {
   Send,
   Download,
   Settings,
-  ShieldCheck,
+  Key,
   Activity,
-  MoreHorizontal,
+  FileText,
 } from "lucide-react";
 
 interface NavItem {
@@ -23,7 +23,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Wallet", href: "/wallet", icon: Wallet, section: "main" },
   { label: "Send", href: "/wallet/send", icon: Send, section: "main" },
   { label: "Receive", href: "/wallet/receive", icon: Download, section: "main" },
-  { label: "Compliance", href: "/compliance", icon: ShieldCheck, section: "network" },
+  { label: "Notes", href: "/wallet/notes", icon: FileText, section: "main" },
+  { label: "Reveal Keys", href: "/compliance", icon: Key, section: "network" },
   { label: "Explorer", href: "/explorer", icon: Activity, section: "network" },
   { label: "Settings", href: "/wallet/settings", icon: Settings, section: "advanced" },
 ];
@@ -32,7 +33,7 @@ const MOBILE_TABS: NavItem[] = [
   { label: "Wallet", href: "/wallet", icon: Wallet },
   { label: "Send", href: "/wallet/send", icon: Send },
   { label: "Receive", href: "/wallet/receive", icon: Download },
-  { label: "Compliance", href: "/compliance", icon: ShieldCheck },
+  { label: "Reveal Keys", href: "/compliance", icon: Key },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
