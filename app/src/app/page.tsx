@@ -67,88 +67,118 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   );
 }
 
-/* ── Dashboard Preview ──────────────────────────────────────────────── */
+/* ── Dashboard Preview (Bybit Pro Dark Theme) ───────────────────────── */
 function DashboardPreview() {
   return (
-    <div className="w-full max-w-5xl mx-auto rounded-xl border border-border/60 bg-card shadow-2xl shadow-black/5 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-muted/30">
+    <div className="w-full max-w-5xl mx-auto rounded-2xl border border-amber-500/30 bg-[#0B0F14] text-slate-100 shadow-[0_0_60px_rgba(245,158,11,0.15)] overflow-hidden relative">
+      {/* Top Window Bar */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800/80 bg-[#11161D]">
         <div className="flex items-center gap-3">
-          <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-400/80" />
-            <div className="w-3 h-3 rounded-full bg-yellow-400/80" />
-            <div className="w-3 h-3 rounded-full bg-green-400/80" />
+          <div className="flex gap-2">
+            <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
+            <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
+            <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
           </div>
-          <div className="hidden sm:flex items-center gap-1 ml-3 px-3 py-1 rounded-md bg-muted/60 text-xs text-muted-foreground">
-            <Search className="w-3 h-3" />
-            <span>Search transactions...</span>
+          <div className="hidden sm:flex items-center gap-2 ml-4 px-3 py-1 rounded-full bg-slate-800/60 border border-slate-700/50 text-xs text-slate-400 font-mono">
+            <Lock className="w-3 h-3 text-amber-400" />
+            <span>veil://testnet.soroban/wallet/pro</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-muted-foreground" />
-          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-semibold text-primary">
-            V
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Groth16 Prover Live (14ms)</span>
           </div>
         </div>
       </div>
 
       <div className="flex">
-        <div className="hidden md:flex flex-col w-48 border-r border-border/40 p-3 gap-1 bg-muted/10">
-          <SidebarItem active>Wallet</SidebarItem>
-          <SidebarItem>Send</SidebarItem>
-          <SidebarItem>Receive</SidebarItem>
-          <SidebarItem>History</SidebarItem>
-          <SidebarItem>Compliance</SidebarItem>
-          <SidebarItem>Explorer</SidebarItem>
+        {/* Sidebar */}
+        <div className="hidden md:flex flex-col w-52 border-r border-slate-800/80 p-3.5 gap-1.5 bg-[#0D1218]">
+          <div className="px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Trading Desk</div>
+          <SidebarItem active icon={<Shield className="w-4 h-4 text-amber-400" />}>Shielded Wallet</SidebarItem>
+          <SidebarItem icon={<ArrowRight className="w-4 h-4 text-slate-400" />}>Confidential Pay</SidebarItem>
+          <SidebarItem icon={<ArrowLeftRight className="w-4 h-4 text-slate-400" />}>ZK Swap</SidebarItem>
+          <SidebarItem icon={<Activity className="w-4 h-4 text-slate-400" />}>Pool History</SidebarItem>
+          <div className="pt-4 px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Audit & Proofs</div>
+          <SidebarItem icon={<Lock className="w-4 h-4 text-slate-400" />}>Cloud Vault</SidebarItem>
+          <SidebarItem icon={<CheckCircle2 className="w-4 h-4 text-slate-400" />}>SEP-41 Wrappers</SidebarItem>
         </div>
 
-        <div className="flex-1 p-4 space-y-4 min-h-[320px]">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded-lg border border-border/40 p-4 bg-background">
-              <div className="text-xs text-muted-foreground mb-1">Shielded Balance</div>
-              <div className="text-2xl font-bold tracking-tight">1,250.00 XLM</div>
-              <div className="flex items-center gap-1 mt-1">
-                <TrendingUp className="w-3 h-3 text-emerald-500" />
-                <span className="text-xs text-emerald-500 font-medium">+12.5%</span>
-                <span className="text-xs text-muted-foreground">this month</span>
+        {/* Main Content */}
+        <div className="flex-1 p-5 space-y-5 bg-gradient-to-b from-[#0F141C] to-[#0B0F14] min-h-[360px]">
+          {/* Top Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="rounded-xl border border-slate-800/80 p-4 bg-[#131922]/90 relative overflow-hidden group hover:border-amber-500/40 transition-colors">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all" />
+              <div className="text-xs font-medium text-slate-400 mb-1 flex items-center justify-between">
+                <span>Total Shielded Pool</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">USDC</span>
+              </div>
+              <div className="text-2xl font-bold tracking-tight text-white font-mono">$1,250.00</div>
+              <div className="flex items-center gap-1.5 mt-2">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-xs text-emerald-400 font-medium">+18.4%</span>
+                <span className="text-xs text-slate-500">24h volume</span>
               </div>
             </div>
-            <div className="rounded-lg border border-border/40 p-4 bg-background">
-              <div className="text-xs text-muted-foreground mb-1">Anonymity Set</div>
-              <div className="text-2xl font-bold tracking-tight">2,847</div>
-              <div className="flex items-center gap-1 mt-1">
-                <Sparkles className="w-3 h-3 text-blue-500" />
-                <span className="text-xs text-blue-500 font-medium">Strong privacy</span>
+
+            <div className="rounded-xl border border-slate-800/80 p-4 bg-[#131922]/90 relative overflow-hidden group hover:border-amber-500/40 transition-colors">
+              <div className="text-xs font-medium text-slate-400 mb-1 flex items-center justify-between">
+                <span>Anonymity Set</span>
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              </div>
+              <div className="text-2xl font-bold tracking-tight text-white font-mono">2,847 Notes</div>
+              <div className="flex items-center gap-1.5 mt-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-xs text-amber-400 font-medium">Unlinkable graph</span>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-800/80 p-4 bg-[#131922]/90 relative overflow-hidden group hover:border-amber-500/40 transition-colors">
+              <div className="text-xs font-medium text-slate-400 mb-1 flex items-center justify-between">
+                <span>Avg Soroban Gas Fee</span>
+                <Zap className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="text-2xl font-bold tracking-tight text-white font-mono">&lt; $0.0001</div>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="text-xs text-slate-400">Finality:</span>
+                <span className="text-xs text-emerald-400 font-medium">~5 seconds</span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/40 p-4 bg-background">
+          {/* Pool Activity Chart */}
+          <div className="rounded-xl border border-slate-800/80 p-4 bg-[#131922]/60">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium">Pool Activity (7d)</span>
-              <span className="text-xs text-muted-foreground">24 deposits</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-200">Zero-Knowledge Pool Liquidity (7d)</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">SNARK Verified</span>
+              </div>
+              <span className="text-xs text-slate-400 font-mono">48 commitments</span>
             </div>
-            <svg viewBox="0 0 400 80" className="w-full h-16" preserveAspectRatio="none">
+            <svg viewBox="0 0 400 70" className="w-full h-16" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
+                  <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#F59E0B" stopOpacity="0" />
                 </linearGradient>
               </defs>
-              <path d="M0 60 Q50 55, 80 45 T160 35 T240 40 T320 25 T400 20 L400 80 L0 80 Z" fill="url(#chartGrad)" />
-              <path d="M0 60 Q50 55, 80 45 T160 35 T240 40 T320 25 T400 20" fill="none" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round" />
+              <path d="M0 55 Q40 48, 80 35 T160 28 T240 32 T320 18 T400 12 L400 70 L0 70 Z" fill="url(#chartGrad)" />
+              <path d="M0 55 Q40 48, 80 35 T160 28 T240 32 T320 18 T400 12" fill="none" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
           </div>
 
-          <div className="rounded-lg border border-border/40 bg-background">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
-              <span className="text-xs font-medium">Recent Transactions</span>
-              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+          {/* Recent Shielded Transactions */}
+          <div className="rounded-xl border border-slate-800/80 bg-[#131922]/80 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/80 bg-[#161D28]/60">
+              <span className="text-xs font-semibold text-slate-300">Live Shielded Desk Feed</span>
+              <span className="text-[11px] font-mono text-amber-400">Encrypted Notes</span>
             </div>
-            <div className="divide-y divide-border/30">
-              <TxRow type="deposit" amount="+100.00 XLM" time="2m ago" status="confirmed" />
-              <TxRow type="withdraw" amount="-50.00 XLM" time="45m ago" status="confirmed" />
-              <TxRow type="swap" amount="100 XLM → 12.04 USDC" time="1h ago" status="confirmed" />
-              <TxRow type="deposit" amount="+100.00 XLM" time="3h ago" status="confirmed" />
+            <div className="divide-y divide-slate-800/60">
+              <TxRow type="deposit" amount="+100.00 USDC" time="Just now" status="confirmed" />
+              <TxRow type="withdraw" amount="-50.00 USDC" time="12m ago" status="confirmed" />
+              <TxRow type="swap" amount="100 XLM → 12.04 USDC" time="42m ago" status="confirmed" />
             </div>
           </div>
         </div>
@@ -157,35 +187,40 @@ function DashboardPreview() {
   );
 }
 
-function SidebarItem({ children, active }: { children: React.ReactNode; active?: boolean }) {
+function SidebarItem({ children, active, icon }: { children: React.ReactNode; active?: boolean; icon?: React.ReactNode }) {
   return (
-    <div className={`px-3 py-1.5 rounded-md text-xs font-medium cursor-default transition-colors ${active ? "bg-primary/5 text-foreground" : "text-muted-foreground"}`}>
-      {children}
+    <div className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium cursor-default transition-all ${
+      active 
+        ? "bg-amber-500/10 text-amber-300 border border-amber-500/30 shadow-sm" 
+        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+    }`}>
+      {icon}
+      <span>{children}</span>
     </div>
   );
 }
 
 function TxRow({ type, amount, time, status }: { type: "deposit" | "withdraw" | "swap"; amount: string; time: string; status: string }) {
   const styles = {
-    deposit: { bg: "bg-emerald-50 text-emerald-600", icon: <ArrowDownLeft className="w-3.5 h-3.5" />, amountColor: "text-emerald-600" },
-    withdraw: { bg: "bg-orange-50 text-orange-600", icon: <ArrowUpRight className="w-3.5 h-3.5" />, amountColor: "text-foreground" },
-    swap: { bg: "bg-indigo-50 text-indigo-600", icon: <ArrowLeftRight className="w-3.5 h-3.5" />, amountColor: "text-indigo-600" },
+    deposit: { bg: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20", icon: <ArrowDownLeft className="w-3.5 h-3.5" />, amountColor: "text-emerald-400" },
+    withdraw: { bg: "bg-amber-500/15 text-amber-400 border border-amber-500/20", icon: <ArrowUpRight className="w-3.5 h-3.5" />, amountColor: "text-slate-200" },
+    swap: { bg: "bg-indigo-500/15 text-indigo-400 border border-indigo-500/20", icon: <ArrowLeftRight className="w-3.5 h-3.5" />, amountColor: "text-indigo-400" },
   };
   const s = styles[type];
   return (
-    <div className="flex items-center justify-between px-4 py-2.5">
+    <div className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/30 transition-colors">
       <div className="flex items-center gap-3">
         <div className={`w-7 h-7 rounded-full flex items-center justify-center ${s.bg}`}>
           {s.icon}
         </div>
         <div>
-          <div className="text-xs font-medium capitalize">{type === "swap" ? "swap" : type === "deposit" ? "received" : "sent"}</div>
-          <div className="text-[10px] text-muted-foreground">{time}</div>
+          <div className="text-xs font-medium text-slate-200 capitalize">{type === "swap" ? "swap" : type === "deposit" ? "received" : "sent"}</div>
+          <div className="text-[10px] text-slate-500 font-mono">{time}</div>
         </div>
       </div>
       <div className="text-right">
-        <div className={`text-xs font-medium ${s.amountColor}`}>{amount}</div>
-        <div className={`text-[10px] capitalize ${status === "confirmed" ? "text-muted-foreground" : "text-yellow-600"}`}>{status}</div>
+        <div className={`text-xs font-mono font-semibold ${s.amountColor}`}>{amount}</div>
+        <div className={`text-[10px] font-mono capitalize ${status === "confirmed" ? "text-slate-500" : "text-amber-400"}`}>{status}</div>
       </div>
     </div>
   );
@@ -265,9 +300,9 @@ export default function Home() {
           </div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-6">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-border/60 bg-muted/50 text-sm text-muted-foreground">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Mainnet pilot on Stellar</span>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-sm text-amber-500 font-medium shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+              <span>Soroban Testnet Pilot &bull; Live ZK Proofs</span>
             </div>
           </motion.div>
 
@@ -294,7 +329,7 @@ export default function Home() {
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="flex items-center gap-3">
-            <Button size="lg" className="rounded-full px-7 gap-2" asChild>
+            <Button size="lg" className="rounded-full px-7 gap-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold shadow-lg shadow-amber-500/20" asChild>
               <Link href="/wallet">
                 Get Started
                 <ArrowRight className="w-4 h-4" />
@@ -315,20 +350,20 @@ export default function Home() {
           >
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 rounded-xl border border-border/60 bg-background/75 p-2 shadow-sm backdrop-blur">
               {[
-                ["Network", "Mainnet"],
-                ["Contracts", "Live"],
+                ["Network", "Soroban Testnet"],
+                ["ZK Engine", "Groth16 SNARK"],
                 ["Assets", "XLM / USDC"],
-                ["Pools", "Active"],
-                ["Mode", "Pilot"],
+                ["Storage", "TTL Extended"],
+                ["Mode", "Live Pilot"],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-lg bg-muted/45 px-3 py-2 text-center">
                   <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
-                  <div className="mt-0.5 text-sm font-semibold">{value}</div>
+                  <div className="mt-0.5 text-sm font-semibold text-foreground">{value}</div>
                 </div>
               ))}
             </div>
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Mainnet pilot. Use small amounts while contracts and circuits are under review.
+              Testnet pilot. All shielded pool operations verify on-chain zero-knowledge proofs in ~5 seconds.
             </p>
           </motion.div>
 
