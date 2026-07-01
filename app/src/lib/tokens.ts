@@ -75,6 +75,18 @@ export const SUPPORTED_TOKENS: SupportedToken[] = [
 export const POOL_TIERS: PoolTier[] = [
   // XLM tiers
   {
+    label: "1 XLM",
+    amount: "10000000",        // 1 * 10^7
+    poolId: process.env.NEXT_PUBLIC_XLM_POOL_1 || "",
+    tokenSymbol: "XLM",
+  },
+  {
+    label: "5 XLM",
+    amount: "50000000",        // 5 * 10^7
+    poolId: process.env.NEXT_PUBLIC_XLM_POOL_5 || "",
+    tokenSymbol: "XLM",
+  },
+  {
     label: "10 XLM",
     amount: "100000000",       // 10 * 10^7
     poolId: process.env.NEXT_PUBLIC_XLM_POOL_10 || "",
@@ -116,6 +128,18 @@ export const POOL_TIERS: PoolTier[] = [
   },
   // USDC tiers
   {
+    label: "1 USDC",
+    amount: "10000000",
+    poolId: process.env.NEXT_PUBLIC_USDC_POOL_1 || "",
+    tokenSymbol: "USDC",
+  },
+  {
+    label: "5 USDC",
+    amount: "50000000",
+    poolId: process.env.NEXT_PUBLIC_USDC_POOL_5 || "",
+    tokenSymbol: "USDC",
+  },
+  {
     label: "10 USDC",
     amount: "100000000",
     poolId: process.env.NEXT_PUBLIC_USDC_POOL_10 || "",
@@ -152,6 +176,18 @@ export const POOL_TIERS: PoolTier[] = [
     tokenSymbol: "USDC",
   },
   // USDT tiers
+  {
+    label: "1 USDT",
+    amount: "10000000",
+    poolId: process.env.NEXT_PUBLIC_USDT_POOL_1 || "",
+    tokenSymbol: "USDT",
+  },
+  {
+    label: "5 USDT",
+    amount: "50000000",
+    poolId: process.env.NEXT_PUBLIC_USDT_POOL_5 || "",
+    tokenSymbol: "USDT",
+  },
   {
     label: "10 USDT",
     amount: "100000000",

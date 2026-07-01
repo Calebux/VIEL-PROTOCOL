@@ -30,7 +30,7 @@ export async function executeConfidentialTransfer(
   tokenSymbol: string,
   onProgress?: ConfidentialProgressCallback
 ): Promise<ConfidentialTransferResult> {
-  const progress = onProgress ?? (() => {});
+  const progress = onProgress ?? (() => { });
 
   // 1. Load sender address from embedded keypair
   progress("Preparing transfer...");
