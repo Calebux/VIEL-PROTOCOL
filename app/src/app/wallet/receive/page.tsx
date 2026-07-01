@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -10,15 +10,12 @@ import {
   Check,
   Loader2,
   AlertTriangle,
-  Droplets,
   Wallet,
   Copy,
   QrCode,
   Shield,
   Share2,
   Eye,
-  CreditCard,
-  ExternalLink,
   Building2,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -32,23 +29,14 @@ import {
   getStellarAddress,
 } from "@/lib/noteStore";
 import {
-  decomposePoolAmount,
   formatTokenAmount,
-  getActiveTokens,
-  getPoolTiers,
-  parseTokenAmount,
-  type PoolAmountBreakdown,
-  type PoolTier,
-  type SupportedToken,
 } from "@/lib/tokens";
-import { executeDeposit, type DepositResult } from "@/lib/deposit";
 import { executeWithdraw } from "@/lib/withdraw";
 import rampProvider from "@/lib/ramp";
 
 /* ── Types ─────────────────────────────────────────────────── */
 
 type Tab = "deposit" | "claim";
-type DepositState = "idle" | "depositing" | "success";
 type ClaimStep = "paste" | "withdrawing" | "choice" | "offramp" | "success";
 
 interface ClaimPayload {
@@ -57,19 +45,7 @@ interface ClaimPayload {
   notes?: { note: string; poolId: string }[];
 }
 
-interface BundledDeposit {
-  result: DepositResult;
-  tier: PoolTier;
-}
-
 /* ── Helpers ───────────────────────────────────────────────── */
-
-function encodeClaimPayload(notes: { note: string; poolId: string }[]): string {
-  if (notes.length === 1) {
-    return btoa(JSON.stringify({ note: notes[0].note, poolId: notes[0].poolId }));
-  }
-  return btoa(JSON.stringify({ notes }));
-}
 
 function decodeClaimPayload(encoded: string): ClaimPayload | null {
   try {
@@ -122,58 +98,13 @@ function shortenAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
-const FRIENDBOT_URL = "https://friendbot.stellar.org";
-
 /* ── Deposit Tab ───────────────────────────────────────────── */
 
 function DepositTab() {
-  const tokens = getActiveTokens();
-  const [token, setToken] = useState<SupportedToken>(tokens[0]);
-  const tiers = getPoolTiers(token.symbol);
-  const [tier, setTier] = useState<PoolTier>(tiers[0]);
-  const [amountInput, setAmountInput] = useState("");
-  const [state, setState] = useState<DepositState>("idle");
-  const [error, setError] = useState("");
-  const [depositResults, setDepositResults] = useState<BundledDeposit[]>([]);
-  const [fundingStatus, setFundingStatus] = useState<"idle" | "funding" | "funded" | "error">("idle");
   const [address, setAddress] = useState("");
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
-  // Share link state (shown after deposit success)
-  const [shareLink, setShareLink] = useState("");
-  const [viewingKey, setViewingKey] = useState("");
-  const [shareCopied, setShareCopied] = useState(false);
-
-  useEffect(() => {
-    const newTiers = getPoolTiers(token.symbol);
-    if (newTiers.length > 0) {
-      setTier(newTiers[0]);
-      setAmountInput(formatTokenAmount(BigInt(newTiers[0].amount), token.decimals, "").trim());
-    }
-  }, [token.symbol]);
-
-  useEffect(() => {
-    if (!amountInput && tier) {
-      setAmountInput(formatTokenAmount(BigInt(tier.amount), token.decimals, "").trim());
-    }
-  }, [amountInput, tier, token.decimals]);
-
-  const amountRaw = useMemo(
-    () => parseTokenAmount(amountInput, token.decimals),
-    [amountInput, token.decimals]
-  );
-  const amountBreakdown: PoolAmountBreakdown | null = useMemo(
-    () => (amountRaw && amountRaw > 0n ? decomposePoolAmount(amountRaw, tiers) : null),
-    [amountRaw, tiers]
-  );
-  const canDeposit = !!amountBreakdown && amountBreakdown.remainderRaw === 0n && amountBreakdown.splits.length > 0;
-  const totalDeposits = amountBreakdown?.splits.reduce((sum, split) => sum + split.count, 0) ?? 0;
-  const breakdownText = amountBreakdown?.splits
-    .map((split) => `${split.count}x ${split.tier.label}`)
-    .join(" + ");
-
-  // Load embedded Stellar address on mount
   useEffect(() => {
     if (address) return;
     const addr = getStellarAddress();
@@ -187,439 +118,71 @@ function DepositTab() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const fundTestnet = async () => {
-    setFundingStatus("funding");
-    try {
-      let addr = address;
-      if (!addr) {
-        const stored = getStellarAddress();
-        if (!stored) throw new Error("Wallet not initialized");
-        addr = stored;
-        setAddress(addr);
-      }
-      const res = await fetch(`${FRIENDBOT_URL}?addr=${addr}`);
-      if (!res.ok) throw new Error("Friendbot request failed");
-      setFundingStatus("funded");
-    } catch {
-      setFundingStatus("error");
-    }
-  };
-
-  const handleDeposit = async () => {
-    setState("depositing");
-    setError("");
-
-    try {
-      const addr = getStellarAddress();
-      if (!addr) throw new Error("Wallet not initialized. Create a wallet first.");
-      setAddress(addr);
-      if (!canDeposit || !amountBreakdown) {
-        throw new Error("Enter an amount that can be split across the available pool tiers.");
-      }
-
-      const bundledDeposits: BundledDeposit[] = [];
-      let firstStoredId = "";
-
-      for (const split of amountBreakdown.splits) {
-        for (let i = 0; i < split.count; i += 1) {
-          const result = await executeDeposit(addr, BigInt(split.tier.amount), split.tier.poolId);
-          const stored = addNote({
-            noteString: result.noteString,
-            token: token.symbol,
-            amountDisplay: split.tier.label,
-            amountRaw: split.tier.amount,
-            txHash: result.txHash,
-          });
-          if (!firstStoredId) firstStoredId = stored.id;
-          bundledDeposits.push({ result, tier: split.tier });
-        }
-      }
-
-      setDepositResults(bundledDeposits);
-
-      // Generate share link
-      const payload = encodeClaimPayload(
-        bundledDeposits.map((deposit) => ({
-          note: deposit.result.noteString,
-          poolId: deposit.tier.poolId,
-        }))
-      );
-      const link = `${window.location.origin}/wallet/receive?claim=${payload}`;
-      setShareLink(link);
-
-      // Generate viewing key
-      if (firstStoredId) {
-        const vk = generateViewingKey(firstStoredId, 24);
-        setViewingKey(vk.viewingKey);
-      }
-
-      setState("success");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Deposit failed");
-      setState("idle");
-    }
-  };
-
-  const copyShareLink = () => {
-    navigator.clipboard.writeText(shareLink);
-    setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 2000);
-  };
-
-  if (state === "depositing") {
-    return (
-      <div className="py-16 text-center space-y-4">
-        <div className="relative mx-auto w-16 h-16">
-          <div className="absolute inset-0 rounded-full border-2 border-emerald-200 animate-ping" />
-          <div className="relative h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center">
-            <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
-          </div>
-        </div>
-        <div>
-          <p className="text-sm font-medium">Depositing to shielded pool...</p>
-          <p className="text-xs text-muted-foreground mt-1">Signing and submitting transaction</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (state === "success" && depositResults.length > 0) {
-    const totalRaw = depositResults.reduce((sum, deposit) => sum + BigInt(deposit.tier.amount), 0n);
-    const totalLabel = formatTokenAmount(totalRaw, token.decimals, token.symbol);
-    const receiptRows = [
-      ["Amount", totalLabel],
-      ["Shielded notes", String(depositResults.length)],
-      ["Network", "Stellar Mainnet"],
-      ["Status", "Ready to claim"],
-    ];
-    return (
-      <div className="py-8 space-y-5">
-        <div className="text-center">
-          <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
-            <Check className="h-8 w-8 text-emerald-600" />
-          </div>
-          <h2 className="text-xl font-semibold">{totalLabel} shielded!</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {depositResults.length === 1
-              ? "Your shielded note was saved to the wallet"
-              : `${depositResults.length} shielded notes were saved to the wallet`}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-border/60 bg-card p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold">Transfer receipt</h3>
-              <p className="text-xs text-muted-foreground">Private payment is ready to share</p>
-            </div>
-            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-              Complete
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {receiptRows.map(([label, value]) => (
-              <div key={label} className="rounded-lg bg-muted/45 px-3 py-2">
-                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
-                <div className="mt-0.5 text-sm font-semibold">{value}</div>
-              </div>
-            ))}
-          </div>
-          <div className="space-y-1.5">
-            <div className="text-xs font-medium text-muted-foreground">Deposit transactions</div>
-            {depositResults.map((deposit, index) => (
-              <div key={`${deposit.result.txHash}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-muted/35 px-3 py-2 text-xs">
-                <span className="font-medium">{deposit.tier.label}</span>
-                <span className="font-mono truncate text-muted-foreground">{deposit.result.txHash}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Share withdrawal link */}
-        <div className="rounded-xl border border-border/60 p-5 space-y-3">
-          <label className="text-xs font-medium text-muted-foreground">Claim link</label>
-          <p className="text-xs text-muted-foreground">
-            Send this link to your recipient so they can claim the full transfer.
-          </p>
-          <div className="bg-muted rounded-lg p-3 break-all text-xs font-mono">{shareLink}</div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={copyShareLink}>
-              {shareCopied ? (
-                <><Check className="h-4 w-4 mr-2 text-emerald-600" /> Copied!</>
-              ) : (
-                <><Copy className="h-4 w-4 mr-2" /> Copy Link</>
-              )}
-            </Button>
-            {typeof navigator !== "undefined" && navigator.share && (
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => navigator.share({ title: "Veil Transfer", url: shareLink })}
-              >
-                <Share2 className="h-4 w-4 mr-2" /> Share
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Security warning */}
-        <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-amber-50 text-amber-800 text-xs">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            This claim link contains the secret needed to withdraw funds. Anyone with this link can
-            claim the transfer. Share it through a secure channel.
-          </span>
-        </div>
-
-        {/* Reveal key */}
-        {viewingKey && (
-          <div className="rounded-xl border border-border/60 p-5 space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Eye className="h-4 w-4" />
-              Transfer Receipt (Reveal Key)
-            </div>
-            <p className="text-xs text-muted-foreground">
-              This key lets authorized reviewers verify disclosed transfer details without spending the funds.
-            </p>
-            <div className="bg-muted rounded-lg p-3 text-xs font-mono break-all">{viewingKey}</div>
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => { setState("idle"); setDepositResults([]); setShareLink(""); setViewingKey(""); }}>
-            Receive More
-          </Button>
-          <Button asChild className="flex-1">
-            <Link href="/wallet">
-              <Wallet className="h-4 w-4 mr-2" /> Wallet
-            </Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Idle state — deposit form
   return (
     <div className="space-y-5">
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-50 text-red-700 text-sm">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          {error}
-          <button className="ml-auto text-xs underline" onClick={() => setError("")}>Dismiss</button>
-        </div>
-      )}
-
-      {/* Token selector */}
-      <div>
-        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Token</label>
-        <div className="flex gap-2">
-          {tokens.map((t) => (
-            <button
-              key={t.symbol}
-              onClick={() => setToken(t)}
-              className={`flex-1 py-3 rounded-xl border text-sm font-medium transition-colors ${
-                token.symbol === t.symbol
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border/60 text-muted-foreground hover:border-foreground/30"
-              }`}
-            >
-              {t.symbol}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Amount selector */}
-      <div>
-        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Amount</label>
-        <div className="grid grid-cols-2 gap-2">
-          {tiers.map((t) => (
-            <button
-              key={t.amount}
-              onClick={() => {
-                setTier(t);
-                setAmountInput(formatTokenAmount(BigInt(t.amount), token.decimals, "").trim());
-              }}
-              className={`py-3 rounded-xl border text-sm font-semibold transition-colors ${
-                tier.amount === t.amount
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                  : "border-border/60 text-muted-foreground hover:border-foreground/30"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Custom amount</label>
-        <input
-          inputMode="decimal"
-          value={amountInput}
-          onChange={(event) => setAmountInput(event.target.value)}
-          placeholder={`Amount in ${token.symbol}`}
-          className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <div className="mt-2 min-h-10 text-xs text-muted-foreground">
-          {amountInput && !amountRaw && "Enter a valid amount."}
-          {amountBreakdown && amountBreakdown.remainderRaw > 0n && (
-            <span>
-              Available pools cover {formatTokenAmount(amountBreakdown.coveredRaw, token.decimals, token.symbol)}.
-              {" "}Uncovered: {formatTokenAmount(amountBreakdown.remainderRaw, token.decimals, token.symbol)}.
-            </span>
-          )}
-          {canDeposit && (
-            <span>
-              Split into {breakdownText}. {totalDeposits > 1 ? `${totalDeposits} deposits will be signed.` : "1 deposit will be signed."}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Fund your wallet ── */}
-      <div className="space-y-2">
-        <label className="text-xs font-medium text-muted-foreground block">Fund your wallet</label>
-
-        {/* Buy crypto (external exchange) */}
-        <div className="rounded-xl border border-border/60 overflow-hidden">
-          <div className="p-4 bg-gradient-to-br from-blue-50/50 to-card">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                <CreditCard className="h-4.5 w-4.5 text-blue-600" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold">Buy crypto with card or bank</div>
-                <p className="text-xs text-muted-foreground">
-                  No crypto? Buy {token.symbol} directly with fiat
-                </p>
-              </div>
+      {/* Send from exchange or wallet */}
+      <div className="rounded-xl border border-border/60 overflow-hidden">
+        <div className="p-4 bg-card">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+              <Building2 className="h-4.5 w-4.5 text-emerald-600" />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <a
-                href={address ? rampProvider.getOnRampUrl({
-                  amount: amountRaw ? Number(amountRaw) / 1e7 : Number(BigInt(tier.amount)) / 1e7,
-                  currency: "USD",
-                  walletAddress: address,
-                }) : "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  if (address) return;
-                  e.preventDefault();
-                  const addr = getStellarAddress();
-                  if (!addr) return;
-                  setAddress(addr);
-                  const url = rampProvider.getOnRampUrl({
-                    amount: amountRaw ? Number(amountRaw) / 1e7 : Number(BigInt(tier.amount)) / 1e7,
-                    currency: "USD",
-                    walletAddress: addr,
-                  });
-                  window.open(url, "_blank");
-                }}
-                className="flex items-center justify-center gap-2 py-3 rounded-xl border border-border/60 text-sm font-medium hover:border-foreground/30 transition-colors bg-background"
-              >
-                <span className="text-blue-600 font-semibold">Coinbase</span>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              </a>
-              <a
-                href="https://www.moonpay.com/buy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 py-3 rounded-xl border border-border/60 text-sm font-medium hover:border-foreground/30 transition-colors bg-background"
-              >
-                <span className="text-purple-600 font-semibold">MoonPay</span>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              </a>
+            <div>
+              <div className="text-sm font-semibold">Send from exchange or wallet</div>
+              <p className="text-xs text-muted-foreground">
+                Send XLM or USDC to your Stellar address
+              </p>
             </div>
           </div>
-          <div className="px-4 py-2.5 bg-muted/20 border-t border-border/40">
-            <p className="text-[11px] text-muted-foreground text-center">
-              Buy with debit card, credit card, Apple Pay, or bank transfer
-            </p>
-          </div>
-        </div>
 
-        {/* Send from exchange or wallet */}
-        <div className="rounded-xl border border-border/60 overflow-hidden">
-          <div className="p-4 bg-card">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                <Building2 className="h-4.5 w-4.5 text-emerald-600" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold">Send from exchange or wallet</div>
-                <p className="text-xs text-muted-foreground">
-                  Already have {token.symbol}? Send it to your address
-                </p>
-              </div>
-            </div>
-
-            {address ? (
-              <>
-                {showQR && (
-                  <div className="mb-3 flex justify-center">
-                    <div className="bg-white p-3 rounded-xl inline-block">
-                      <QRCodeSVG value={address} size={160} />
-                    </div>
+          {address ? (
+            <>
+              {showQR && (
+                <div className="mb-3 flex justify-center">
+                  <div className="bg-white p-3 rounded-xl inline-block">
+                    <QRCodeSVG value={address} size={160} />
                   </div>
-                )}
-                <div className="bg-muted/50 rounded-lg px-3 py-2.5 mb-3">
-                  <div className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Your Stellar Address</div>
-                  <div className="text-xs font-mono break-all leading-relaxed">{address}</div>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={copyAddress}>
-                    {copied ? (
-                      <><Check className="h-3.5 w-3.5 mr-1.5 text-emerald-500" /> Copied</>
-                    ) : (
-                      <><Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Address</>
-                    )}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setShowQR(!showQR)}>
-                    <QrCode className="h-3.5 w-3.5 mr-1.5" />
-                    {showQR ? "Hide" : "Show"} QR
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <Button
-                size="sm"
-                className="w-full"
-                variant="outline"
-                onClick={() => {
-                  const addr = getStellarAddress();
-                  if (addr) setAddress(addr);
-                }}
-              >
-                <Wallet className="h-3.5 w-3.5 mr-1.5" />
-                Show Address
-              </Button>
-            )}
-          </div>
-          <div className="px-4 py-2.5 bg-muted/20 border-t border-border/40">
-            <p className="text-[11px] text-muted-foreground text-center">
-              Send from Binance, Coinbase, Yellow Card, Luno, or any Stellar wallet
-            </p>
-          </div>
+              )}
+              <div className="bg-muted/50 rounded-lg px-3 py-2.5 mb-3">
+                <div className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Your Stellar Address</div>
+                <div className="text-xs font-mono break-all leading-relaxed">{address}</div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1" onClick={copyAddress}>
+                  {copied ? (
+                    <><Check className="h-3.5 w-3.5 mr-1.5 text-emerald-500" /> Copied</>
+                  ) : (
+                    <><Copy className="h-3.5 w-3.5 mr-1.5" /> Copy Address</>
+                  )}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowQR(!showQR)}>
+                  <QrCode className="h-3.5 w-3.5 mr-1.5" />
+                  {showQR ? "Hide" : "Show"} QR
+                </Button>
+              </div>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              className="w-full"
+              variant="outline"
+              onClick={() => {
+                const addr = getStellarAddress();
+                if (addr) setAddress(addr);
+              }}
+            >
+              <Wallet className="h-3.5 w-3.5 mr-1.5" />
+              Show Address
+            </Button>
+          )}
+        </div>
+        <div className="px-4 py-2.5 bg-muted/20 border-t border-border/40">
+          <p className="text-[11px] text-muted-foreground text-center">
+            Send from Binance, Coinbase, Yellow Card, Luno, or any Stellar wallet
+          </p>
         </div>
       </div>
-
-      {/* Shield into pool */}
-      <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/30 p-5 text-center">
-        <Download className="h-8 w-8 text-emerald-600 mx-auto mb-2" />
-        <div className="text-sm font-semibold mb-1">
-          Shield {amountRaw ? formatTokenAmount(amountRaw, token.decimals, token.symbol) : tier.label}
-        </div>
-        <p className="text-xs text-muted-foreground mb-1">Deposit into the Veil privacy pool</p>
-        <p className="text-[10px] text-muted-foreground/60">Note is automatically saved to your wallet</p>
-      </div>
-
-      <Button className="w-full h-12 text-base" onClick={handleDeposit} disabled={!canDeposit}>
-        <Download className="h-5 w-5 mr-2" />
-        Shield {amountRaw ? formatTokenAmount(amountRaw, token.decimals, token.symbol) : tier.label}
-      </Button>
     </div>
   );
 }
