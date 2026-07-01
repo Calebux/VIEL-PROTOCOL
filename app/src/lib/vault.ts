@@ -43,6 +43,14 @@ async function deriveKey(pin: string, salt: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(bits);
 }
 
+/* ── Auth token (prevents unauthenticated overwrites) ──── */
+
+async function deriveAuthToken(username: string, pin: string): Promise<string> {
+  const salt = new TextEncoder().encode("veil-vault-auth:" + username);
+  const token = await deriveKey(pin, salt);
+  return bytesToHex(token);
+}
+
 /* ── Encrypt / Decrypt ──────────────────────────────────── */
 
 export async function encryptVault(walletJson: string, pin: string): Promise<string> {
@@ -82,12 +90,15 @@ export async function saveVault(username: string, pin: string): Promise<void> {
 
   const walletJson = JSON.stringify(data);
   const identifierHash = vaultIdentifier(username);
-  const encryptedVault = await encryptVault(walletJson, pin);
+  const [encryptedVault, authToken] = await Promise.all([
+    encryptVault(walletJson, pin),
+    deriveAuthToken(username, pin),
+  ]);
 
   const res = await fetch("/api/vault", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "save", identifierHash, encryptedVault }),
+    body: JSON.stringify({ action: "save", identifierHash, encryptedVault, authToken }),
   });
   if (!res.ok) {
     const body = await res.text();
