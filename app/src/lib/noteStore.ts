@@ -273,6 +273,41 @@ export function selectNoteForAmount(
   return sufficient[0] ?? null;
 }
 
+export function addConfidentialTransfer(
+  token: string,
+  amount: string,
+  recipient: string,
+  txHash: string
+): StoredNote {
+  const data = loadRaw();
+  if (!data) throw new Error("Wallet not initialized");
+  const id = hash(`conf-${txHash}`).slice(0, 16);
+  const scale = 10n ** 7n;
+  const raw = BigInt(amount);
+  const whole = raw / scale;
+  const frac = raw % scale;
+  const displayAmt =
+    frac === 0n
+      ? `${whole}`
+      : `${whole}.${frac.toString().padStart(7, "0").replace(/0+$/, "")}`;
+
+  const stored: StoredNote = {
+    id,
+    noteString: `confidential-${recipient.slice(0, 8)}-${txHash.slice(0, 12)}`,
+    token,
+    amountDisplay: `${displayAmt} ${token}`,
+    amountRaw: amount,
+    createdAt: Date.now(),
+    txHash,
+    status: "spent",
+    spentTxHash: txHash,
+    spentAt: Date.now(),
+  };
+  data.notes.push(stored);
+  save(data);
+  return stored;
+}
+
 export function exportWallet(): string {
   const data = loadRaw();
   if (!data) throw new Error("No wallet to export");

@@ -14,6 +14,8 @@ import {
   Eye,
   Copy,
   Clock,
+  Shield,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AppShell from "@/components/AppShell";
@@ -24,12 +26,15 @@ import {
   selectNoteForAmount,
   markSpent,
   generateViewingKey,
+  addConfidentialTransfer,
   type StoredNote,
 } from "@/lib/noteStore";
-import { getActiveTokens, getPoolTiers, getSwapPairs, SUPPORTED_TOKENS, type SupportedToken, type PoolTier } from "@/lib/tokens";
+import { getActiveTokens, getPoolTiers, getSwapPairs, SUPPORTED_TOKENS, parseTokenAmount, formatTokenAmount, type SupportedToken, type PoolTier } from "@/lib/tokens";
 import { executeWithdraw, checkSubsetStatus } from "@/lib/withdraw";
+import { executeConfidentialTransfer } from "@/lib/confidentialTransfer";
 import type { SubsetStatus } from "@/lib/withdraw";
 
+type SendMode = "shielded" | "confidential";
 type SendState = "form" | "review" | "processing" | "success" | "error";
 
 const FRIENDLY_STEPS = [
@@ -43,7 +48,14 @@ const FRIENDLY_STEPS = [
   "Sending...",
 ];
 
-function SuccessScreen({ txHash, noteId }: { txHash: string; noteId: string }) {
+const CONFIDENTIAL_STEPS = [
+  "Preparing transfer...",
+  "Signing...",
+  "Submitting...",
+  "Confirming...",
+];
+
+function SuccessScreen({ txHash, noteId, mode }: { txHash: string; noteId: string; mode: SendMode }) {
   const [vk, setVk] = useState<{ viewingKey: string; timelockHours: number; expiresAt: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [timelock, setTimelock] = useState(24);
@@ -72,7 +84,9 @@ function SuccessScreen({ txHash, noteId }: { txHash: string; noteId: string }) {
         </div>
         <h2 className="text-xl font-semibold mt-4">Sent!</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Your private transfer is complete
+          {mode === "shielded"
+            ? "Your private transfer is complete"
+            : "Your confidential transfer is complete"}
         </p>
       </div>
 
@@ -81,74 +95,76 @@ function SuccessScreen({ txHash, noteId }: { txHash: string; noteId: string }) {
         <div className="text-xs font-mono break-all">{txHash}</div>
       </div>
 
-      {/* Reveal Key Section */}
-      <div className="rounded-xl border border-border/60 p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Eye className="h-4 w-4 text-violet-600" />
-          <span className="text-sm font-semibold">Reveal Key</span>
-        </div>
+      {/* Reveal Key Section — only for shielded pool */}
+      {mode === "shielded" && (
+        <div className="rounded-xl border border-border/60 p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Eye className="h-4 w-4 text-violet-600" />
+            <span className="text-sm font-semibold">Reveal Key</span>
+          </div>
 
-        {!vk ? (
-          <>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Generate a reveal key for this transaction. Share it only with an
-              authorized reviewer so they can verify disclosed details after the
-              timelock expires. The key cannot spend funds.
-            </p>
+          {!vk ? (
+            <>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Generate a reveal key for this transaction. Share it only with an
+                authorized reviewer so they can verify disclosed details after the
+                timelock expires. The key cannot spend funds.
+              </p>
 
-            <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Timelock period</label>
-              <div className="flex gap-1.5">
-                {[6, 12, 24, 72].map((h) => (
-                  <button
-                    key={h}
-                    onClick={() => setTimelock(h)}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      timelock === h
-                        ? "bg-violet-100 text-violet-700 border border-violet-200"
-                        : "bg-muted/50 text-muted-foreground border border-transparent hover:bg-muted"
-                    }`}
-                  >
-                    {h}h
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Timelock period</label>
+                <div className="flex gap-1.5">
+                  {[6, 12, 24, 72].map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => setTimelock(h)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        timelock === h
+                          ? "bg-violet-100 text-violet-700 border border-violet-200"
+                          : "bg-muted/50 text-muted-foreground border border-transparent hover:bg-muted"
+                      }`}
+                    >
+                      {h}h
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                onClick={handleGenerate}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Generate Reveal Key
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="rounded-lg bg-violet-50/80 border border-violet-200/60 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-violet-600 font-medium">Key</span>
+                  <button onClick={handleCopy} className="text-violet-600 hover:text-violet-800">
+                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                   </button>
-                ))}
+                </div>
+                <div className="font-mono text-xs break-all text-violet-900">{vk.viewingKey}</div>
               </div>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2"
-              onClick={handleGenerate}
-            >
-              <Eye className="h-3.5 w-3.5" />
-              Generate Reveal Key
-            </Button>
-          </>
-        ) : (
-          <>
-            <div className="rounded-lg bg-violet-50/80 border border-violet-200/60 p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-violet-600 font-medium">Key</span>
-                <button onClick={handleCopy} className="text-violet-600 hover:text-violet-800">
-                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                </button>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                Unlocks in {vk.timelockHours}h — auditor can verify after{" "}
+                {new Date(vk.expiresAt).toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </div>
-              <div className="font-mono text-xs break-all text-violet-900">{vk.viewingKey}</div>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              Unlocks in {vk.timelockHours}h — auditor can verify after{" "}
-              {new Date(vk.expiresAt).toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </div>
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </div>
+      )}
 
       <Button asChild className="w-full">
         <Link href="/wallet">Back to Wallet</Link>
@@ -159,7 +175,9 @@ function SuccessScreen({ txHash, noteId }: { txHash: string; noteId: string }) {
 
 export default function SendPage() {
   const tokens = getActiveTokens();
-  const [token, setToken] = useState<SupportedToken>(tokens[0]);
+  const allTokens = SUPPORTED_TOKENS.filter((t) => t.symbol === "XLM" || t.tokenId);
+  const [mode, setMode] = useState<SendMode>("shielded");
+  const [token, setToken] = useState<SupportedToken>(tokens[0] ?? allTokens[0]);
   const [recipient, setRecipient] = useState("");
   const [selectedNote, setSelectedNote] = useState<StoredNote | null>(null);
   const tiers = getPoolTiers(token.symbol);
@@ -172,6 +190,9 @@ export default function SendPage() {
   const [pasted, setPasted] = useState(false);
   const [enableSwap, setEnableSwap] = useState(false);
   const [swapTokenOut, setSwapTokenOut] = useState("");
+
+  // Confidential pay state
+  const [confAmount, setConfAmount] = useState("");
 
   // Swap pairs for selected token
   const swapPairs = getSwapPairs(token.symbol);
@@ -186,8 +207,9 @@ export default function SendPage() {
     setTier(newTiers[0] || null);
   }, [token.symbol]);
 
-  // Auto-select note when token/tier changes
+  // Auto-select note when token/tier changes (shielded mode only)
   useEffect(() => {
+    if (mode !== "shielded") return;
     if (!tier) { setSelectedNote(null); return; }
     const note = selectNoteForAmount(token.symbol, tier.amount);
     setSelectedNote(note);
@@ -205,7 +227,7 @@ export default function SendPage() {
         }
       }
     }
-  }, [token, tier]);
+  }, [token, tier, mode]);
 
   const handlePaste = async () => {
     try {
@@ -218,10 +240,15 @@ export default function SendPage() {
     }
   };
 
-  const canReview = selectedNote && recipient.startsWith("G") && recipient.length >= 56;
+  const validRecipient = recipient.startsWith("G") && recipient.length >= 56;
+
+  const canReviewShielded = selectedNote && validRecipient;
+  const confAmountParsed = confAmount ? parseTokenAmount(confAmount, token.decimals) : null;
+  const canReviewConfidential = confAmountParsed && confAmountParsed > 0n && validRecipient;
+
+  const canReview = mode === "shielded" ? canReviewShielded : canReviewConfidential;
 
   const handleSend = async () => {
-    if (!selectedNote) return;
     setState("processing");
     setStepIndex(0);
     setError("");
@@ -229,19 +256,40 @@ export default function SendPage() {
     try {
       if (!isUnlocked()) throw new Error("Wallet is locked");
 
-      let step = 0;
-      const result = await executeWithdraw(
-        selectedNote.noteString,
-        recipient,
-        (msg: string) => {
-          if (step < FRIENDLY_STEPS.length - 1) step++;
-          setStepIndex(step);
-        },
-        tier?.poolId
-      );
-
-      markSpent(selectedNote.id, result.txHash);
-      setTxHash(result.txHash);
+      if (mode === "shielded") {
+        if (!selectedNote) return;
+        let step = 0;
+        const result = await executeWithdraw(
+          selectedNote.noteString,
+          recipient,
+          (msg: string) => {
+            if (step < FRIENDLY_STEPS.length - 1) step++;
+            setStepIndex(step);
+          },
+          tier?.poolId
+        );
+        markSpent(selectedNote.id, result.txHash);
+        setTxHash(result.txHash);
+      } else {
+        if (!confAmountParsed) return;
+        let step = 0;
+        const result = await executeConfidentialTransfer(
+          recipient,
+          confAmountParsed,
+          token.symbol,
+          () => {
+            if (step < CONFIDENTIAL_STEPS.length - 1) step++;
+            setStepIndex(step);
+          }
+        );
+        addConfidentialTransfer(
+          token.symbol,
+          confAmountParsed.toString(),
+          recipient,
+          result.txHash
+        );
+        setTxHash(result.txHash);
+      }
       setState("success");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Transaction failed");
@@ -267,6 +315,8 @@ export default function SendPage() {
     );
   }
 
+  const activeSteps = mode === "shielded" ? FRIENDLY_STEPS : CONFIDENTIAL_STEPS;
+
   return (
     <AppShell>
       <div className="max-w-lg mx-auto px-4 lg:px-6 py-6 pb-24 lg:pb-6">
@@ -280,12 +330,38 @@ export default function SendPage() {
 
         {state === "form" && (
           <div className="space-y-5">
+            {/* Mode toggle */}
+            <div className="flex gap-1 p-1 rounded-xl bg-muted/50 border border-border/60">
+              <button
+                onClick={() => setMode("shielded")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  mode === "shielded"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Shield className="h-4 w-4" />
+                Shielded Pool
+              </button>
+              <button
+                onClick={() => setMode("confidential")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  mode === "confidential"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Zap className="h-4 w-4" />
+                Confidential Pay
+              </button>
+            </div>
+
             {/* Token selector */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Token</label>
               <div className="flex gap-2">
-                {tokens.map((t) => {
-                  const count = getUnspentNotes(t.symbol).length;
+                {(mode === "shielded" ? tokens : allTokens).map((t) => {
+                  const count = mode === "shielded" ? getUnspentNotes(t.symbol).length : null;
                   return (
                     <button
                       key={t.symbol}
@@ -297,46 +373,71 @@ export default function SendPage() {
                       }`}
                     >
                       {t.symbol}
-                      <span className="ml-1 opacity-60">({count})</span>
+                      {count !== null && <span className="ml-1 opacity-60">({count})</span>}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Amount selector */}
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Amount</label>
-              <div className="grid grid-cols-2 gap-2">
-                {tiers.map((t) => {
-                  const hasNote = !!selectNoteForAmount(token.symbol, t.amount);
-                  return (
-                    <button
-                      key={t.amount}
-                      onClick={() => setTier(t)}
-                      className={`py-3 rounded-xl border text-sm font-semibold transition-colors relative ${
-                        tier?.amount === t.amount
-                          ? "border-foreground bg-foreground text-background"
-                          : hasNote
-                          ? "border-border/60 text-foreground hover:border-foreground/30"
-                          : "border-border/40 text-muted-foreground/50"
-                      }`}
-                    >
-                      {t.label}
-                      {!hasNote && (
-                        <span className="block text-[10px] font-normal opacity-60">no notes</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              {tier && !selectedNote && (
-                <div className="mt-3 text-sm text-amber-600 flex items-center gap-1.5">
-                  <AlertTriangle className="h-4 w-4" />
-                  No unspent {tier.label} notes
+            {/* Amount — differs by mode */}
+            {mode === "shielded" ? (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Amount</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {tiers.map((t) => {
+                    const hasNote = !!selectNoteForAmount(token.symbol, t.amount);
+                    return (
+                      <button
+                        key={t.amount}
+                        onClick={() => setTier(t)}
+                        className={`py-3 rounded-xl border text-sm font-semibold transition-colors relative ${
+                          tier?.amount === t.amount
+                            ? "border-foreground bg-foreground text-background"
+                            : hasNote
+                            ? "border-border/60 text-foreground hover:border-foreground/30"
+                            : "border-border/40 text-muted-foreground/50"
+                        }`}
+                      >
+                        {t.label}
+                        {!hasNote && (
+                          <span className="block text-[10px] font-normal opacity-60">no notes</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+                {tier && !selectedNote && (
+                  <div className="mt-3 text-sm text-amber-600 flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4" />
+                    No unspent {tier.label} notes
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Amount</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={confAmount}
+                    onChange={(e) => setConfAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full h-12 rounded-xl border border-input bg-background px-4 pr-16 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
+                    {token.symbol}
+                  </span>
+                </div>
+                {confAmount && !confAmountParsed && (
+                  <div className="mt-2 text-sm text-amber-600 flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4" />
+                    Invalid amount
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Recipient */}
             <div>
@@ -360,38 +461,40 @@ export default function SendPage() {
               </div>
             </div>
 
-            {/* Swap toggle */}
-            <div className="rounded-xl border border-border/60 p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <ArrowLeftRight className="w-4 h-4" />
+            {/* Swap toggle — shielded mode only */}
+            {mode === "shielded" && (
+              <div className="rounded-xl border border-border/60 p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <ArrowLeftRight className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Receive as different token</p>
+                    <p className="text-xs text-muted-foreground">Extra unlinkability via swap</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium">Receive as different token</p>
-                  <p className="text-xs text-muted-foreground">Extra unlinkability via swap</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setEnableSwap(!enableSwap);
-                  if (!enableSwap && availableSwapTokens.length > 0) {
-                    setSwapTokenOut(availableSwapTokens[0].symbol);
-                  }
-                }}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  enableSwap ? "bg-indigo-600" : "bg-muted"
-                }`}
-              >
-                <div
-                  className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${
-                    enableSwap ? "left-[22px]" : "left-0.5"
+                <button
+                  onClick={() => {
+                    setEnableSwap(!enableSwap);
+                    if (!enableSwap && availableSwapTokens.length > 0) {
+                      setSwapTokenOut(availableSwapTokens[0].symbol);
+                    }
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    enableSwap ? "bg-indigo-600" : "bg-muted"
                   }`}
-                />
-              </button>
-            </div>
+                >
+                  <div
+                    className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${
+                      enableSwap ? "left-[22px]" : "left-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
 
-            {/* Swap token selector */}
-            {enableSwap && availableSwapTokens.length > 0 && (
+            {/* Swap token selector — shielded mode only */}
+            {mode === "shielded" && enableSwap && availableSwapTokens.length > 0 && (
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground block">Recipient receives</label>
                 <div className="flex gap-2">
@@ -420,8 +523,8 @@ export default function SendPage() {
               </div>
             )}
 
-            {/* Compliance status */}
-            {compliance && (
+            {/* Compliance status — shielded mode only */}
+            {mode === "shielded" && compliance && (
               <div className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm ${
                 compliance.status === "compliant"
                   ? "bg-emerald-50 text-emerald-700"
@@ -444,22 +547,30 @@ export default function SendPage() {
           </div>
         )}
 
-        {state === "review" && selectedNote && (
+        {state === "review" && (
           <div className="space-y-5">
             <div className="rounded-xl border border-border/60 p-5 space-y-4">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Amount</span>
-                <span className="font-semibold">{selectedNote.amountDisplay}</span>
+                <span className="font-semibold">
+                  {mode === "shielded"
+                    ? selectedNote?.amountDisplay
+                    : confAmountParsed
+                    ? formatTokenAmount(confAmountParsed, token.decimals, token.symbol)
+                    : ""}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">To</span>
                 <span className="font-mono text-xs">{recipient.slice(0, 8)}...{recipient.slice(-6)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Note ID</span>
-                <span className="font-mono text-xs">{selectedNote.id}</span>
-              </div>
-              {enableSwap && selectedPair && (
+              {mode === "shielded" && selectedNote && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Note ID</span>
+                  <span className="font-mono text-xs">{selectedNote.id}</span>
+                </div>
+              )}
+              {mode === "shielded" && enableSwap && selectedPair && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Swap</span>
                   <span className="flex items-center gap-1 text-indigo-600 font-medium">
@@ -469,9 +580,17 @@ export default function SendPage() {
                 </div>
               )}
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Privacy</span>
+                <span className="text-muted-foreground">Mode</span>
                 <span className="flex items-center gap-1 text-emerald-600">
-                  <ShieldCheck className="h-3.5 w-3.5" /> ZK Proof{enableSwap ? " + Swap" : ""}
+                  {mode === "shielded" ? (
+                    <>
+                      <ShieldCheck className="h-3.5 w-3.5" /> ZK Proof{enableSwap ? " + Swap" : ""}
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-3.5 w-3.5" /> Confidential Transfer
+                    </>
+                  )}
                 </span>
               </div>
             </div>
@@ -495,7 +614,7 @@ export default function SendPage() {
               </div>
             </div>
             <div className="space-y-2">
-              {FRIENDLY_STEPS.slice(0, stepIndex + 1).map((msg, i) => (
+              {activeSteps.slice(0, stepIndex + 1).map((msg, i) => (
                 <div
                   key={i}
                   className={`flex items-center gap-2 text-sm ${
@@ -517,7 +636,7 @@ export default function SendPage() {
         )}
 
         {state === "success" && (
-          <SuccessScreen txHash={txHash} noteId={selectedNote?.id ?? ""} />
+          <SuccessScreen txHash={txHash} noteId={selectedNote?.id ?? ""} mode={mode} />
         )}
 
         {state === "error" && (
