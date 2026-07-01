@@ -39,6 +39,10 @@ pub struct Groth16Proof {
     pub c: BytesN<64>,
 }
 
+// TTL constants: ~1 day threshold, ~31 day bump
+const INSTANCE_TTL_THRESHOLD: u32 = 17_280;
+const INSTANCE_TTL_BUMP: u32 = 535_680;
+
 #[contracttype]
 pub enum DataKey {
     Vk,
@@ -58,6 +62,7 @@ impl Groth16Verifier {
         admin.require_auth();
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Vk, &vk);
+        env.storage().instance().extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_BUMP);
     }
 
     /// Verify a Groth16 proof against public inputs.
@@ -67,6 +72,7 @@ impl Groth16Verifier {
     ///
     /// Where vk_x = IC[0] + sum(public_input[i] * IC[i+1])
     pub fn verify(env: Env, proof: Groth16Proof, public_inputs: Vec<BytesN<32>>) -> bool {
+        env.storage().instance().extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_BUMP);
         let vk: VerificationKey = env.storage().instance().get(&DataKey::Vk).unwrap();
         let bn254 = env.crypto().bn254();
 

@@ -10,6 +10,12 @@ mod types;
 
 use types::{DataKey, ProofData};
 
+// TTL constants: ~1 day threshold, ~31 day bump (ledger ≈ 5s)
+const INSTANCE_TTL_THRESHOLD: u32 = 17_280;
+const INSTANCE_TTL_BUMP: u32 = 535_680;
+const PERSISTENT_TTL_THRESHOLD: u32 = 17_280;
+const PERSISTENT_TTL_BUMP: u32 = 535_680;
+
 #[contractevent]
 #[derive(Clone, Debug)]
 pub struct DepositEvent {
@@ -54,6 +60,10 @@ impl VeilPool {
             .set(&DataKey::Denomination, &denomination);
 
         merkle::init_tree(&env);
+
+        // Extend TTLs so contract survives testnet archival
+        env.storage().instance().extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_BUMP);
+        bump_tree_ttl(&env);
     }
 
     /// Deposit tokens into the pool. Returns the leaf index.
@@ -71,6 +81,10 @@ impl VeilPool {
         token::Client::new(&env, &token_addr).transfer(&from, &pool_address, &denomination);
 
         let leaf_index = merkle::insert(&env, &commitment);
+
+        // Extend TTLs
+        env.storage().instance().extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_BUMP);
+        bump_tree_ttl(&env);
 
         env.events().publish_event(&DepositEvent {
             from,
@@ -93,6 +107,11 @@ impl VeilPool {
         env.storage()
             .persistent()
             .set(&DataKey::EncryptedNote(leaf_index), &encrypted_note);
+        env.storage().persistent().extend_ttl(
+            &DataKey::EncryptedNote(leaf_index),
+            PERSISTENT_TTL_THRESHOLD,
+            PERSISTENT_TTL_BUMP,
+        );
 
         leaf_index
     }
@@ -175,6 +194,15 @@ impl VeilPool {
         env.storage()
             .persistent()
             .set(&DataKey::Nullifier(nullifier_hash.clone()), &true);
+        env.storage().persistent().extend_ttl(
+            &DataKey::Nullifier(nullifier_hash.clone()),
+            PERSISTENT_TTL_THRESHOLD,
+            PERSISTENT_TTL_BUMP,
+        );
+
+        // Extend instance + tree TTLs
+        env.storage().instance().extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_BUMP);
+        bump_tree_ttl(&env);
 
         // Transfer tokens
         let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
@@ -284,6 +312,15 @@ impl VeilPool {
         env.storage()
             .persistent()
             .set(&DataKey::Nullifier(nullifier_hash.clone()), &true);
+        env.storage().persistent().extend_ttl(
+            &DataKey::Nullifier(nullifier_hash.clone()),
+            PERSISTENT_TTL_THRESHOLD,
+            PERSISTENT_TTL_BUMP,
+        );
+
+        // Extend instance + tree TTLs
+        env.storage().instance().extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_BUMP);
+        bump_tree_ttl(&env);
 
         let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
         let pool_address = env.current_contract_address();
@@ -407,6 +444,32 @@ fn i128_to_bytes32(env: &Env, val: i128) -> BytesN<32> {
     let bytes = (val as u128).to_be_bytes();
     buf[16..32].copy_from_slice(&bytes);
     BytesN::from_array(env, &buf)
+}
+
+/// Extend TTL on all core Merkle tree persistent entries.
+fn bump_tree_ttl(env: &Env) {
+    use types::{ROOT_HISTORY_SIZE, TREE_DEPTH};
+
+    // NextIndex + CurrentRootIndex
+    for key in [DataKey::NextIndex, DataKey::CurrentRootIndex] {
+        if env.storage().persistent().has(&key) {
+            env.storage().persistent().extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_BUMP);
+        }
+    }
+    // FilledSubtree entries
+    for i in 0..TREE_DEPTH {
+        let key = DataKey::FilledSubtree(i);
+        if env.storage().persistent().has(&key) {
+            env.storage().persistent().extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_BUMP);
+        }
+    }
+    // Root history ring buffer
+    for i in 0..ROOT_HISTORY_SIZE {
+        let key = DataKey::Root(i);
+        if env.storage().persistent().has(&key) {
+            env.storage().persistent().extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL_BUMP);
+        }
+    }
 }
 
 #[cfg(test)]
