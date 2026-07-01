@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Wallet,
   Send,
@@ -10,7 +10,9 @@ import {
   Key,
   Activity,
   FileText,
+  Lock,
 } from "lucide-react";
+import { lockWallet, isUnlocked } from "@/lib/noteStore";
 
 interface NavItem {
   label: string;
@@ -38,6 +40,12 @@ const MOBILE_TABS: NavItem[] = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLock = () => {
+    lockWallet();
+    router.push("/wallet");
+  };
 
   const isActive = (href: string) => {
     if (href === "/wallet") return pathname === "/wallet";
@@ -164,6 +172,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 Relayer: 12ms
               </span>
             </div>
+            {isUnlocked() && (
+              <button
+                onClick={handleLock}
+                className="h-8 w-8 rounded-lg bg-[#181c25] border border-[#1e2329] flex items-center justify-center text-[#848e9c] hover:text-[#f7a600] hover:border-[#f7a600]/40 transition-colors"
+                title="Lock wallet"
+              >
+                <Lock className="h-3.5 w-3.5" />
+              </button>
+            )}
             <div className="text-xs font-mono font-bold bg-[#f7a600]/15 border border-[#f7a600]/40 text-[#f7a600] px-3 py-1 rounded-md">
               MAINNET PILOT
             </div>

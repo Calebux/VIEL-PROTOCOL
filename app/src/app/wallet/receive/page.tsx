@@ -1037,7 +1037,7 @@ function ReceivePageInner() {
 
   useEffect(() => { setReady(true); }, []);
 
-  // Check for ?claim= on mount
+  // Check for ?claim= or ?tab=claim on mount
   useEffect(() => {
     const claimParam = searchParams.get("claim");
     if (claimParam) {
@@ -1047,6 +1047,8 @@ function ReceivePageInner() {
         setTab("claim");
         window.history.replaceState({}, "", "/wallet/receive");
       }
+    } else if (searchParams.get("tab") === "claim") {
+      setTab("claim");
     }
   }, [searchParams]);
 
